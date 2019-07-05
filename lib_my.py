@@ -63,14 +63,14 @@ class CopyMysqlDbRemoteToLocal:
         self.local_db_cursor = None
 
         if platform.system() == 'Linux':
-            self.mysql = r'/usr/bin/mysql'
+            self.mysql = r'mysql'
             self.lz4 = 'lz4'
             self.zstd = 'zstd'
 
         else:
             self.mysql = r'C:\Program Files\MariaDB 10.1\bin\mysql.exe'
-            self.lz4 = f'./lz4/lz4'
-            self.zstd = f'./zstd/zstd'
+            self.lz4 = r'.\lz4\lz4'
+            self.zstd = r'.\zstd\zstd'
 
     def connect(self):
 
