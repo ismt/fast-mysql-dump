@@ -63,14 +63,14 @@ class CopyMysqlDbRemoteToLocal:
         self.local_db_cursor = None
 
         if platform.system() == 'Linux':
-            self.mysql = r'mysql'
-            self.lz4 = 'lz4'
-            self.zstd = 'zstd'
+            self._mysql = r'mysql'
+            self._lz4 = 'lz4'
+            self._zstd = 'zstd'
 
         else:
-            self.mysql = r'C:\Program Files\MariaDB 10.1\bin\mysql.exe'
-            self.lz4 = r'.\lz4\lz4'
-            self.zstd = r'.\zstd\zstd'
+            self._mysql = r'C:\Program Files\MariaDB 10.1\bin\mysql.exe'
+            self._lz4 = r'.\lz4\lz4'
+            self._zstd = r'.\zstd\zstd'
 
     def connect(self):
 
@@ -205,7 +205,7 @@ class CopyMysqlDbRemoteToLocal:
         self.console.print('Восстанавливаем')
 
         subprocess.call(
-            f'"{self.mysql}" '
+            f'"{self._mysql}" '
             f'--host={self.local_mysql_hostname} '
             f'--port={self.local_mysql_port} '
             f'--user={self.local_mysql_username} '
@@ -222,14 +222,14 @@ class CopyMysqlDbRemoteToLocal:
 
         if self._remote_mysql_dump_compressor == 'lz4':
             subprocess.call(
-                f'{self.lz4} -d -c "{self.remote_mysql_dump_path_local}" ',
+                f'{self._lz4} -d -c "{self.remote_mysql_dump_path_local}" ',
                 stdout=open(self.remote_mysql_dump_path_local_uncompressed, 'w'),
                 shell=True
             )
 
         elif self._remote_mysql_dump_compressor == 'zstandard':
             subprocess.call(
-                f'{self.zstd} -d -c "{self.remote_mysql_dump_path_local}" ',
+                f'{self._zstd} -d -c "{self.remote_mysql_dump_path_local}" ',
                 stdout=open(self.remote_mysql_dump_path_local_uncompressed, 'w'),
                 shell=True
             )
@@ -363,3 +363,8 @@ def split_list_to_chunks(l, n):
     # Разбивает лист на серии по несколько элементов
     for i in range(0, len(l), n):
         yield l[i:i + n]
+
+
+
+
+
