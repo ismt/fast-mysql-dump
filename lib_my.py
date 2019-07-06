@@ -211,7 +211,9 @@ class CopyMysqlDbRemoteToLocal:
             f'--user={self.local_mysql_username} '
             f'--password={self.local_mysql_password} '
             f'--database={self.local_mysql_dbname} '
-            f'', stdin=open(self.remote_mysql_dump_path_local_uncompressed))
+            f'', stdin=open(self.remote_mysql_dump_path_local_uncompressed),
+            shell=True
+        )
 
         self.console.print('Ok')
 
