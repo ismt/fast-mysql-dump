@@ -91,15 +91,39 @@ class CopyMysqlDbRemoteToLocal:
         self.local_db = MySQLdb.connect(
             host=self.local_mysql_hostname,
             port=self.local_mysql_port,
-            db=self.local_mysql_dbname,
+            db='',
             user=self.local_mysql_username,
             passwd=self.local_mysql_password,
             charset="utf8mb4",
             connect_timeout=30,
-            autocommit=True
+            autocommit=True,
+
         )
 
         self.local_db_cursor = self.local_db.cursor(MySQLdb.cursors.DictCursor)
+
+        self.local_db_cursor.execute(f'show databases like "{self.local_mysql_dbname}"')
+
+        if not self.local_db_cursor.fetchall():
+            self.local_db_cursor.execute(f'create database {self.local_mysql_dbname}')
+
+            self.local_db.close()
+
+            self.local_db = MySQLdb.connect(
+                host=self.local_mysql_hostname,
+                port=self.local_mysql_port,
+                db=self.local_mysql_dbname,
+                user=self.local_mysql_username,
+                passwd=self.local_mysql_password,
+                charset="utf8mb4",
+                connect_timeout=30,
+                autocommit=True,
+
+            )
+
+            self.local_db_cursor = self.local_db.cursor(MySQLdb.cursors.DictCursor)
+
+        pass
 
     @property
     def remote_mysql_dump_compressor(self):
