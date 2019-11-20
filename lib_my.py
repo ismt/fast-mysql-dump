@@ -68,7 +68,7 @@ class CopyMysqlDbRemoteToLocal:
             self._zstd = 'zstd'
 
         else:
-            self._mysql = r'C:\Program Files\MariaDB 10.1\bin\mysql.exe'
+            self._mysql = r'C:\Program Files\MariaDB 10.4\bin\mysql.exe'
             self._lz4 = r'.\lz4\lz4'
             self._zstd = r'.\zstd\zstd'
 
@@ -107,21 +107,21 @@ class CopyMysqlDbRemoteToLocal:
         if not self.local_db_cursor.fetchall():
             self.local_db_cursor.execute(f'create database {self.local_mysql_dbname}')
 
-            self.local_db.close()
+        self.local_db.close()
 
-            self.local_db = MySQLdb.connect(
-                host=self.local_mysql_hostname,
-                port=self.local_mysql_port,
-                db=self.local_mysql_dbname,
-                user=self.local_mysql_username,
-                passwd=self.local_mysql_password,
-                charset="utf8mb4",
-                connect_timeout=30,
-                autocommit=True,
+        self.local_db = MySQLdb.connect(
+            host=self.local_mysql_hostname,
+            port=self.local_mysql_port,
+            db=self.local_mysql_dbname,
+            user=self.local_mysql_username,
+            passwd=self.local_mysql_password,
+            charset="utf8mb4",
+            connect_timeout=30,
+            autocommit=True,
 
-            )
+        )
 
-            self.local_db_cursor = self.local_db.cursor(MySQLdb.cursors.DictCursor)
+        self.local_db_cursor = self.local_db.cursor(MySQLdb.cursors.DictCursor)
 
         pass
 
@@ -235,7 +235,7 @@ class CopyMysqlDbRemoteToLocal:
             f'--user={self.local_mysql_username} '
             f'--password={self.local_mysql_password} '
             f'--database={self.local_mysql_dbname} '
-            f'', stdin=open(self.remote_mysql_dump_path_local_uncompressed),
+            f'', stdin=open(self.remote_mysql_dump_path_local_uncompressed)      ,
             shell=True
         )
 
