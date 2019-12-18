@@ -117,11 +117,20 @@ class CopyMysqlDbRemoteToLocal:
             passwd=self.local_mysql_password,
             charset="utf8mb4",
             connect_timeout=30,
-            autocommit=True,
+            autocommit=True,init_command='SET session TRANSACTION ISOLATION LEVEL READ COMMITTED;'
 
         )
 
         self.local_db_cursor = self.local_db.cursor(MySQLdb.cursors.DictCursor)
+
+        self.local_db_cursor.execute('show variables like "tx_isolation"')
+
+
+        ttt=self.local_db_cursor.fetchall()
+
+
+        print(ttt)
+
 
         pass
 
