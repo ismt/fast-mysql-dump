@@ -118,7 +118,7 @@ class CopyMysqlDbRemoteToLocal:
             charset="utf8mb4",
             connect_timeout=30,
             autocommit=True,
-            init_command='SET session TRANSACTION ISOLATION LEVEL READ COMMITTED;'
+            init_command='SET session TRANSACTION ISOLATION LEVEL SERIALIZABLE;'
 
         )
 
@@ -244,6 +244,7 @@ class CopyMysqlDbRemoteToLocal:
             f'--user={self.local_mysql_username} '
             f'--password={self.local_mysql_password} '
             f'--database={self.local_mysql_dbname} '
+            f'--init_command="SET session TRANSACTION ISOLATION LEVEL SERIALIZABLE" '
             f'', stdin=open(self.remote_mysql_dump_path_local_uncompressed),
             shell=True
         )
