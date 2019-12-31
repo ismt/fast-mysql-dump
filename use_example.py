@@ -17,8 +17,7 @@ def vesna_dev_api():
     obj.remote_mysql_password = 'test'
 
     obj.remote_mysql_ignore_tables = [
-        'crosscodes',
-        # 'price'
+        'table_name',
     ]
 
     obj.local_mysql_dbname = 'root'
