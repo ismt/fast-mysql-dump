@@ -11,7 +11,7 @@ def vesna_dev_api():
     obj.remote_ssh_password = ''
     obj.remote_ssh_port = 22
 
-    obj.remote_mysql_hostname='127.0.0.1'
+    obj.remote_mysql_hostname = '127.0.0.1'
     obj.remote_mysql_dbname = 'test'
     obj.remote_mysql_username = 'root'
     obj.remote_mysql_password = 'test'
@@ -23,6 +23,7 @@ def vesna_dev_api():
 
     obj.local_mysql_dbname = 'root'
     obj.local_mysql_hostname = '127.0.0.1'
+    obj.local_mysql_password = 'test'
 
     obj.connect()
     # obj.dump_remote_and_download()
