@@ -25,10 +25,10 @@ def vesna_dev_api():
     obj.local_mysql_password = 'test'
 
     obj.connect()
-    # obj.dump_remote_and_download()
-    # obj.unpack()
+    obj.dump_remote_and_download()
+    obj.unpack()
     # obj.change_row_format('dynamic')
-    # obj.restore_local()
+    obj.restore_local()
 
 
 vesna_dev_api()
