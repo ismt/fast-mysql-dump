@@ -1,0 +1,7 @@
+
+/.idea/* linguist-vendored
+/Doc/* linguist-vendored
+/lz4/* linguist-vendored
+/zstd/* linguist-vendored
+
+
