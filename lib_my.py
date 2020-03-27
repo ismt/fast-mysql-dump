@@ -341,31 +341,23 @@ class CopyMysqlDbRemoteToLocal:
         return file
 
     def get_mysql_exec(self):
+        file = ''
 
         try:
             file = 'mysql'
             subprocess.call(file, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         except FileNotFoundError as e:
-            file = r'C:\Program Files\MariaDB 10.4\bin\mysql.exe'
+            files = [
+                r'C:\Program Files\MariaDB 10.4\bin\mysql.exe',
+                r'C:\Program Files\MariaDB 10.3\bin\mysql.exe',
+                r'C:\Program Files\MariaDB 10.2\bin\mysql.exe',
+                r'C:\Program Files\MariaDB 10.1\bin\mysql.exe'
+            ]
 
-            if os.path.isfile(file):
-                return file
-
-            file = r'C:\Program Files\MariaDB 10.3\bin\mysql.exe'
-
-            if os.path.isfile(file):
-                return file
-
-            file = r'C:\Program Files\MariaDB 10.2\bin\mysql.exe'
-
-            if os.path.isfile(file):
-                return file
-
-            file = r'C:\Program Files\MariaDB 10.1\bin\mysql.exe'
-
-            if os.path.isfile(file):
-                return file
+            for file in files:
+                if os.path.isfile(file):
+                    return file
 
         return file
 
