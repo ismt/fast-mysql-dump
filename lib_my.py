@@ -64,13 +64,9 @@ class CopyMysqlDbRemoteToLocal:
 
         if platform.system() == 'Linux':
             self._mysql = r'mysql'
-            self._lz4 = 'lz4'
-            self._zstd = 'zstd'
 
         else:
             self._mysql = r'C:\Program Files\MariaDB 10.4\bin\mysql.exe'
-            self._lz4 = r'.\lz4\lz4'
-            self._zstd = r'.\zstd\zstd'
 
     def connect(self):
 
@@ -256,14 +252,15 @@ class CopyMysqlDbRemoteToLocal:
 
         if self._remote_mysql_dump_compressor == 'lz4':
             subprocess.call(
-                f'{self._lz4} -d -c "{self.remote_mysql_dump_path_local}" ',
+                f'{self.get_lz4_exec()} -d -c "{self.remote_mysql_dump_path_local}" ',
                 stdout=open(self.remote_mysql_dump_path_local_uncompressed, 'w'),
                 shell=True
             )
 
         elif self._remote_mysql_dump_compressor == 'zstandard':
+
             subprocess.call(
-                f'{self._zstd} -d -c "{self.remote_mysql_dump_path_local}" ',
+                f'{self.get_zstd_exec()} -d -c "{self.remote_mysql_dump_path_local}" ',
                 stdout=open(self.remote_mysql_dump_path_local_uncompressed, 'w'),
                 shell=True
             )
@@ -332,6 +329,30 @@ class CopyMysqlDbRemoteToLocal:
             os.rename(remote_mysql_dump_path_local_uncompressed_tmp, self.remote_mysql_dump_path_local_uncompressed)
 
             self.console.print('Ok')
+
+    def get_zstd_exec(self):
+
+        try:
+            file = 'zstd'
+            subprocess.call(file, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        except FileNotFoundError as e:
+            file = r'.\zstd\zstd'
+            # proc = subprocess.call(file, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        return file
+
+    def get_lz4_exec(self):
+
+        try:
+            file = 'lz4'
+            subprocess.call(file, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        except FileNotFoundError as e:
+            file = r'.\lz4\lz4'
+            # subprocess.call(file, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        return file
 
 
 def insert_bath(
