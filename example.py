@@ -3,7 +3,7 @@ import lib_my
 import winsound
 
 
-def vesna_dev_api():
+def test_site():
     obj = lib_my.CopyMysqlDbRemoteToLocal()
 
     obj.remote_ssh_hostname = ''
@@ -31,6 +31,6 @@ def vesna_dev_api():
     obj.restore_local()
 
 
-vesna_dev_api()
+test_site()
 
 # winsound.Beep(500, 3000)

@@ -62,12 +62,6 @@ class CopyMysqlDbRemoteToLocal:
         self.local_db = None
         self.local_db_cursor = None
 
-        if platform.system() == 'Linux':
-            self._mysql = r'mysql'
-
-        else:
-            self._mysql = r'C:\Program Files\MariaDB 10.4\bin\mysql.exe'
-
     def connect(self):
 
         self.ssh_server = paramiko.SSHClient()
@@ -119,14 +113,6 @@ class CopyMysqlDbRemoteToLocal:
         )
 
         self.local_db_cursor = self.local_db.cursor(MySQLdb.cursors.DictCursor)
-
-        # self.local_db_cursor.execute('show variables like "tx_isolation"')
-        #
-        #
-        # ttt=self.local_db_cursor.fetchall()
-        #
-        #
-        # print(ttt)
 
         pass
 
@@ -234,7 +220,7 @@ class CopyMysqlDbRemoteToLocal:
         self.console.print('Восстанавливаем')
 
         subprocess.call(
-            f'"{self._mysql}" '
+            f'"{self.get_mysql_exec()}" '
             f'--host={self.local_mysql_hostname} '
             f'--port={self.local_mysql_port} '
             f'--user={self.local_mysql_username} '
@@ -351,6 +337,35 @@ class CopyMysqlDbRemoteToLocal:
         except FileNotFoundError as e:
             file = r'.\lz4\lz4'
             # subprocess.call(file, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        return file
+
+    def get_mysql_exec(self):
+
+        try:
+            file = 'mysql'
+            subprocess.call(file, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        except FileNotFoundError as e:
+            file = r'C:\Program Files\MariaDB 10.4\bin\mysql.exe'
+
+            if os.path.isfile(file):
+                return file
+
+            file = r'C:\Program Files\MariaDB 10.3\bin\mysql.exe'
+
+            if os.path.isfile(file):
+                return file
+
+            file = r'C:\Program Files\MariaDB 10.2\bin\mysql.exe'
+
+            if os.path.isfile(file):
+                return file
+
+            file = r'C:\Program Files\MariaDB 10.1\bin\mysql.exe'
+
+            if os.path.isfile(file):
+                return file
 
         return file
 
