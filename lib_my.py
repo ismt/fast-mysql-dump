@@ -318,36 +318,31 @@ class CopyMysqlDbRemoteToLocal:
 
     def get_zstd_exec(self):
 
-        try:
+        if platform.system() in ['Linux', 'Mac']:
             file = 'zstd'
-            subprocess.call(file, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        except FileNotFoundError as e:
+        else:
             file = r'.\zstd\zstd'
-            # proc = subprocess.call(file, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         return file
 
     def get_lz4_exec(self):
 
-        try:
+        if platform.system() in ['Linux', 'Mac']:
             file = 'lz4'
-            subprocess.call(file, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        except FileNotFoundError as e:
+        else:
             file = r'.\lz4\lz4'
-            # subprocess.call(file, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         return file
 
     def get_mysql_exec(self):
         file = ''
 
-        try:
+        if platform.system() in ['Linux', 'Mac']:
             file = 'mysql'
-            subprocess.call(file, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-        except FileNotFoundError as e:
+        else:
             files = [
                 r'C:\Program Files\MariaDB 10.4\bin\mysql.exe',
                 r'C:\Program Files\MariaDB 10.3\bin\mysql.exe',
