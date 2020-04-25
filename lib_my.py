@@ -321,8 +321,11 @@ class CopyMysqlDbRemoteToLocal:
         if platform.system() in ['Linux', 'Mac']:
             file = 'zstd'
 
-        else:
+        elif platform.system() in ['Windows']:
             file = r'.\zstd\zstd'
+
+        else:
+            raise ValueError('Не знаю такой операционной системы')
 
         return file
 
@@ -331,8 +334,11 @@ class CopyMysqlDbRemoteToLocal:
         if platform.system() in ['Linux', 'Mac']:
             file = 'lz4'
 
-        else:
+        elif platform.system() in ['Windows']:
             file = r'.\lz4\lz4'
+
+        else:
+            raise ValueError('Не знаю такой операционной системы')
 
         return file
 
@@ -342,7 +348,7 @@ class CopyMysqlDbRemoteToLocal:
         if platform.system() in ['Linux', 'Mac']:
             file = 'mysql'
 
-        else:
+        elif platform.system() in ['Windows']:
             files = [
                 r'C:\Program Files\MariaDB 10.4\bin\mysql.exe',
                 r'C:\Program Files\MariaDB 10.3\bin\mysql.exe',
@@ -353,6 +359,8 @@ class CopyMysqlDbRemoteToLocal:
             for file in files:
                 if os.path.isfile(file):
                     return file
+        else:
+            raise ValueError('Не знаю такой операционной системы')
 
         return file
 
