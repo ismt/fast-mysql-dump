@@ -318,7 +318,7 @@ class CopyMysqlDbRemoteToLocal:
 
     def get_zstd_exec(self):
 
-        if platform.system() in ['Linux', 'Mac']:
+        if platform.system() in ['Linux', 'Darwin']:
             file = 'zstd'
 
         elif platform.system() in ['Windows']:
@@ -331,7 +331,7 @@ class CopyMysqlDbRemoteToLocal:
 
     def get_lz4_exec(self):
 
-        if platform.system() in ['Linux', 'Mac']:
+        if platform.system() in ['Linux', 'Darwin']:
             file = 'lz4'
 
         elif platform.system() in ['Windows']:
@@ -345,7 +345,7 @@ class CopyMysqlDbRemoteToLocal:
     def get_mysql_exec(self):
         file = ''
 
-        if platform.system() in ['Linux', 'Mac']:
+        if platform.system() in ['Linux', 'Darwin']:
             file = 'mysql'
 
         elif platform.system() in ['Windows']:
