@@ -11,6 +11,8 @@ import paramiko
 
 import platform
 
+import math
+
 
 class ConsolePrint:
 
@@ -20,7 +22,13 @@ class ConsolePrint:
     def print(self, message: str):
         current_time = time.time()
 
-        print(f'{round(current_time - self.last_message_time, 1)}  {message}')
+        seconds = current_time - self.last_message_time
+
+        sec_portion, sec = math.modf(seconds)
+        sec_portion = round(sec_portion, 1)
+        sec_portion = str(sec_portion)[2:]
+
+        print(f'''{time.strftime('%H:%M:%S', time.gmtime(seconds))}.{sec_portion} {message}''')
 
         self.last_message_time = current_time
 
