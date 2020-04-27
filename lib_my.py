@@ -197,7 +197,8 @@ class CopyMysqlDbRemoteToLocal:
             f'--quick '
             # f'--no-autocommit '    
             f'{ignore_tables} '
-            f'"{self.remote_mysql_dbname}" | {compressor} > {self.remote_mysql_dump_path}')
+            f'"{self.remote_mysql_dbname}" | {compressor} > {self.remote_mysql_dump_path}'
+        )
 
         stdin, stdout, stderr = self.ssh_server.exec_command(cmd_mysqldump, get_pty=True)
 
