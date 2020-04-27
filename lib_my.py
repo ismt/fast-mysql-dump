@@ -185,7 +185,7 @@ class CopyMysqlDbRemoteToLocal:
             raise ValueError('Не опознан тип сжатия')
 
         cmd_mysqldump = (
-            f'mysqldump '
+            f'        mysqldump '
             f'--user="{self.remote_mysql_username}" '
             f'--host="{self.remote_mysql_hostname}" '
             f'--password="{self.remote_mysql_password}" '
