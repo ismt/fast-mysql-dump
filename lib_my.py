@@ -184,9 +184,7 @@ class CopyMysqlDbRemoteToLocal:
         else:
             raise ValueError('Не опознан тип сжатия')
 
-        # time.sleep(3)
-
-        stdin, stdout, stderr = self.ssh_server.exec_command(
+        cmd_mysqldump = (
             f'mysqldump '
             f'--user="{self.remote_mysql_username}" '
             f'--host="{self.remote_mysql_hostname}" '
@@ -199,8 +197,9 @@ class CopyMysqlDbRemoteToLocal:
             f'--quick '
             # f'--no-autocommit '    
             f'{ignore_tables} '
-            f'"{self.remote_mysql_dbname}" | {compressor} > {self.remote_mysql_dump_path}'
-        )
+            f'"{self.remote_mysql_dbname}" | {compressor} > {self.remote_mysql_dump_path}')
+
+        stdin, stdout, stderr = self.ssh_server.exec_command(cmd_mysqldump, get_pty=True)
 
         for line in stdout:
             print(line.strip('\n'))
