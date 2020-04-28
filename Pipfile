@@ -7,11 +7,7 @@ verify_ssl = true
 
 [packages]
 mysqlclient = "==1.4.6"
-sshtunnel = "*"
-bcrypt = "==3.1.7"
-asn1crypto = "==1.3.0"
-zstandard = "*"
-zstd = "*"
+paramiko = "==2.7.1"
 
 [requires]
 python_version = "3.6"
