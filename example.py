@@ -1,6 +1,7 @@
 import lib_my
 
-import winsound
+
+# import winsound
 
 
 def test_site():
@@ -29,6 +30,7 @@ def test_site():
     obj.unpack()
     # obj.change_row_format('dynamic')
     obj.restore_local()
+    obj.clean_dump_files()
 
 
 test_site()

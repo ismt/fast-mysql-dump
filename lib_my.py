@@ -372,6 +372,15 @@ class CopyMysqlDbRemoteToLocal:
 
         return file
 
+    def clean_dump_files(self):
+
+        self.console.print('Удаляем файлы дампов')
+
+        os.remove(self.remote_mysql_dump_path_local)
+        os.remove(self.remote_mysql_dump_path_local_uncompressed)
+
+        self.console.print('Ok')
+
 
 def insert_bath(
         row_list,
