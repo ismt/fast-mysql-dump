@@ -26,7 +26,7 @@ class ConsolePrint:
 
         sec_portion, sec = math.modf(seconds)
         sec_portion = round(sec_portion, time_precision)
-        sec_portion = str(sec_portion)[2:]
+        sec_portion = str(sec_portion)[2:].ljust(time_precision, '0')
 
         print(f'''{time.strftime('%H:%M:%S', time.gmtime(seconds))}.{sec_portion} {message}''')
 
