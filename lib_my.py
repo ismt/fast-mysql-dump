@@ -19,13 +19,13 @@ class ConsolePrint:
     def __init__(self):
         self.last_message_time = time.time()
 
-    def print(self, message: str):
+    def print(self, message, time_precision: int = 2):
         current_time = time.time()
 
         seconds = current_time - self.last_message_time
 
         sec_portion, sec = math.modf(seconds)
-        sec_portion = round(sec_portion, 1)
+        sec_portion = round(sec_portion, time_precision)
         sec_portion = str(sec_portion)[2:]
 
         print(f'''{time.strftime('%H:%M:%S', time.gmtime(seconds))}.{sec_portion} {message}''')
