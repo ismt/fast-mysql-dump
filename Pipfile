@@ -8,7 +8,6 @@ verify_ssl = true
 [packages]
 mysqlclient = "==2.0.1"
 paramiko = "==2.7.2"
-cryptography = "==3.2"
 
 [requires]
 python_version = "3.6"

@@ -80,7 +80,7 @@ class CopyMysqlDbRemoteToLocal:
             username=self.remote_ssh_username,
             password=self.remote_ssh_password,
             port=self.remote_ssh_port,
-            compress=True,
+            # compress=True,
             allow_agent=True
         )
 
