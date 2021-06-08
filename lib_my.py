@@ -188,7 +188,7 @@ class CopyMysqlDbRemoteToLocal:
             f' mysqldump '
             f'--user="{self.remote_mysql_username}" '
             f'--host="{self.remote_mysql_hostname}" '
-            f'--password="{self.remote_mysql_password}" '
+            f'''--password='{self.remote_mysql_password}' '''
             f'--max_allowed_packet=1000M '
             f'--extended-insert '
             # f'--flush-logs '
@@ -233,7 +233,7 @@ class CopyMysqlDbRemoteToLocal:
             f'--port={self.local_mysql_port} '
             f'--user={self.local_mysql_username} '
             f'--password={self.local_mysql_password} '
-            f'--database={self.local_mysql_dbname} '
+            f'  {self.local_mysql_dbname} '
             f'--init_command="SET session TRANSACTION ISOLATION LEVEL READ COMMITTED" '
             f'', stdin=open(self.remote_mysql_dump_path_local_uncompressed),
             shell=True
