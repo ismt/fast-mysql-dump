@@ -51,8 +51,6 @@ class CopyMysqlDbRemoteToLocal:
 
         self._remote_mysql_dump_compressor = None
 
-        self.remote_mysql_dump_compressor = 'zstandard'
-
         self.remote_mysql_ignore_tables = list()
 
         self.local_mysql_dbname = ''
@@ -71,6 +69,10 @@ class CopyMysqlDbRemoteToLocal:
         self.local_db_cursor = None
 
     def connect(self):
+
+        if self.ssh_server is not None:
+
+            return
 
         self.ssh_server = paramiko.SSHClient()
         self.ssh_server.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -122,7 +124,7 @@ class CopyMysqlDbRemoteToLocal:
 
         self.local_db_cursor = self.local_db.cursor(MySQLdb.cursors.DictCursor)
 
-        pass
+        self.remote_mysql_dump_compressor = 'xz'
 
     @property
     def remote_mysql_dump_compressor(self):
@@ -131,9 +133,16 @@ class CopyMysqlDbRemoteToLocal:
     @remote_mysql_dump_compressor.setter
     def remote_mysql_dump_compressor(self, value):
 
-        compressors = ['lz4', 'zstandard', 'xz']
+        if value is None:
+            self.remote_mysql_dump_compressor = 'xz'
 
-        assert value in compressors, f'Нет такого компрессора, Выберите из {compressors}'
+        compressors = ['lz4', 'zstd', 'xz']
+
+        if value not in compressors:
+            raise ValueError(f'Не знаю такого компрессора, выберите из {compressors}')
+
+        if not self.remote_util_exists(value):
+            raise ValueError(f'Утилиты {value} нет на ssh сервере')
 
         self._remote_mysql_dump_compressor = value
         self.remote_mysql_dump_path_local = f'tmp/dump.sql.{value}'
@@ -175,7 +184,7 @@ class CopyMysqlDbRemoteToLocal:
         if self._remote_mysql_dump_compressor == 'lz4':
             compressor = 'lz4 -1 -z'
 
-        elif self._remote_mysql_dump_compressor == 'zstandard':
+        elif self._remote_mysql_dump_compressor == 'zstd':
             compressor = 'pzstd -3 -c'
 
         elif self._remote_mysql_dump_compressor == 'xz':
@@ -203,7 +212,13 @@ class CopyMysqlDbRemoteToLocal:
         stdin, stdout, stderr = self.ssh_server.exec_command(cmd_mysqldump, get_pty=True)
 
         for line in stdout:
-            print(line.strip('\n'))
+            line = line.strip('\n')
+
+            if 'Access denied for user' in line:
+                raise ValueError(line)
+
+            else:
+                print(line)
 
         for line in stderr:
             print(line.strip('\n'))
@@ -251,7 +266,7 @@ class CopyMysqlDbRemoteToLocal:
                 shell=True
             )
 
-        elif self._remote_mysql_dump_compressor == 'zstandard':
+        elif self._remote_mysql_dump_compressor == 'zstd':
 
             subprocess.call(
                 f'{self.get_zstd_exec()} -d -c "{self.remote_mysql_dump_path_local}" ',
@@ -381,6 +396,21 @@ class CopyMysqlDbRemoteToLocal:
         os.remove(self.remote_mysql_dump_path_local_uncompressed)
 
         self.console.print('Ok')
+
+    def remote_util_exists(self, util_name):
+
+        stdin, stdout, stderr = self.ssh_server.exec_command(f'whereis "{util_name}"', get_pty=True)
+
+        for line in stdout:
+            res = line.strip('\n').strip('\r')
+
+            if res == util_name + ':':
+                return False
+
+        for line in stderr:
+            print(line.strip('\n'))
+
+        return True
 
 
 def insert_bath(
