@@ -16,6 +16,7 @@ def test_site():
     obj.remote_mysql_dbname = 'test'
     obj.remote_mysql_username = 'root'
     obj.remote_mysql_password = 'test'
+    obj.remote_mysql_dump_compressor = 'zstd'
 
     obj.remote_mysql_ignore_tables = [
         'table_name',
@@ -26,6 +27,7 @@ def test_site():
     obj.local_mysql_password = 'test'
 
     obj.connect()
+
     obj.dump_remote_and_download()
     obj.unpack()
     # obj.change_row_format('dynamic')

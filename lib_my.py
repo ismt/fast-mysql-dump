@@ -49,7 +49,7 @@ class CopyMysqlDbRemoteToLocal:
         self.remote_mysql_dump_path_local = None
         self.remote_mysql_dump_path_local_uncompressed = f'tmp/dump.sql'
 
-        self._remote_mysql_dump_compressor = None
+        self.remote_mysql_dump_compressor = 'xz'
 
         self.remote_mysql_ignore_tables = list()
 
@@ -124,17 +124,12 @@ class CopyMysqlDbRemoteToLocal:
 
         self.local_db_cursor = self.local_db.cursor(MySQLdb.cursors.DictCursor)
 
-        self.remote_mysql_dump_compressor = 'xz'
+        self.remote_mysql_dump_compressor_set(self.remote_mysql_dump_compressor)
 
-    @property
-    def remote_mysql_dump_compressor(self):
-        return self._remote_mysql_dump_compressor
-
-    @remote_mysql_dump_compressor.setter
-    def remote_mysql_dump_compressor(self, value):
+    def remote_mysql_dump_compressor_set(self, value):
 
         if value is None:
-            self.remote_mysql_dump_compressor = 'xz'
+            self.remote_mysql_dump_compressor_set('xz')
 
         compressors = ['lz4', 'zstd', 'xz']
 
@@ -144,7 +139,7 @@ class CopyMysqlDbRemoteToLocal:
         if not self.remote_util_exists(value):
             raise ValueError(f'Утилиты {value} нет на ssh сервере')
 
-        self._remote_mysql_dump_compressor = value
+        # self.remote_mysql_dump_compressor = value
         self.remote_mysql_dump_path_local = f'tmp/dump.sql.{value}'
         self.remote_mysql_dump_path = f'/tmp/8aeac716-3960-421f-9672-ee00a95f7594'
 
@@ -181,13 +176,13 @@ class CopyMysqlDbRemoteToLocal:
             for item in self.remote_mysql_ignore_tables
         )
 
-        if self._remote_mysql_dump_compressor == 'lz4':
+        if self.remote_mysql_dump_compressor == 'lz4':
             compressor = 'lz4 -1 -z'
 
-        elif self._remote_mysql_dump_compressor == 'zstd':
+        elif self.remote_mysql_dump_compressor == 'zstd':
             compressor = 'pzstd -3 -c'
 
-        elif self._remote_mysql_dump_compressor == 'xz':
+        elif self.remote_mysql_dump_compressor == 'xz':
             compressor = 'xz -1 -c --threads=0'
 
         else:
@@ -259,14 +254,14 @@ class CopyMysqlDbRemoteToLocal:
     def unpack(self):
         self.console.print(f'Распаковываем {self.remote_mysql_dump_path_local}')
 
-        if self._remote_mysql_dump_compressor == 'lz4':
+        if self.remote_mysql_dump_compressor == 'lz4':
             subprocess.call(
                 f'{self.get_lz4_exec()} -d -c "{self.remote_mysql_dump_path_local}" ',
                 stdout=open(self.remote_mysql_dump_path_local_uncompressed, 'w'),
                 shell=True
             )
 
-        elif self._remote_mysql_dump_compressor == 'zstd':
+        elif self.remote_mysql_dump_compressor == 'zstd':
 
             subprocess.call(
                 f'{self.get_zstd_exec()} -d -c "{self.remote_mysql_dump_path_local}" ',
@@ -274,7 +269,7 @@ class CopyMysqlDbRemoteToLocal:
                 shell=True
             )
 
-        elif self._remote_mysql_dump_compressor == 'xz':
+        elif self.remote_mysql_dump_compressor == 'xz':
             with lzma.LZMAFile(self.remote_mysql_dump_path_local) as fxz:
                 with open(file=self.remote_mysql_dump_path_local_uncompressed, mode='wb') as fout:
                     while True:
