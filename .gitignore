@@ -2,8 +2,10 @@
 /.idea
 __pycache__
 
-
-
-
 /copy_remote_base*
 /tmp
+
+/lz4/example/*
+/lz4/include/*
+/zstd/example/*
+/zstd/include/*
