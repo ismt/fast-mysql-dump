@@ -3,5 +3,4 @@
 /Doc/* linguist-vendored
 /lz4/* linguist-vendored
 /zstd/* linguist-vendored
-
-
+/utils/* linguist-vendored
