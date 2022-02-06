@@ -222,7 +222,7 @@ class CopyMysqlDbRemoteToLocal:
         )
 
         if self.remote_mysql_dump_compressor == 'lz4':
-            compressor = 'lz4 -1 -z'
+            compressor = 'lz4 -5 -z'
 
         elif self.remote_mysql_dump_compressor == 'zstd':
             compressor = 'pzstd -3 -c'
