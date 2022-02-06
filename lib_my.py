@@ -13,6 +13,20 @@ import platform
 
 import math
 
+from typing import NamedTuple
+
+
+class BColors(NamedTuple):
+    # HEADER = '\033[95m'
+    BLUE = '\033[94m'
+    CYAN = '\033[96m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 
 class ConsolePrint:
 
@@ -49,7 +63,7 @@ class CopyMysqlDbRemoteToLocal:
         self.remote_mysql_dump_path_local = None
         self.remote_mysql_dump_path_local_uncompressed = f'tmp/dump.sql'
 
-        self.remote_mysql_dump_compressor = 'xz'
+        self.remote_mysql_dump_compressor = 'zstd'
 
         self.remote_mysql_ignore_tables = list()
 
@@ -83,7 +97,7 @@ class CopyMysqlDbRemoteToLocal:
             password=self.remote_ssh_password,
             port=self.remote_ssh_port,
             # compress=True,
-            allow_agent=True
+            allow_agent=False if self.remote_ssh_password else True
         )
 
         self.sftp = self.ssh_server.open_sftp()
@@ -124,7 +138,21 @@ class CopyMysqlDbRemoteToLocal:
 
         self.local_db_cursor = self.local_db.cursor(MySQLdb.cursors.DictCursor)
 
-        self.remote_mysql_dump_compressor_set(self.remote_mysql_dump_compressor)
+        try:
+            self.remote_mysql_dump_compressor_set(self.remote_mysql_dump_compressor)
+
+        except ValueError as e:
+
+            self.console.print(BColors.RED)
+
+            self.console.print(f'{e}')
+            self.console.print(f'Пробуем xz, будет медленней')
+
+            self.console.print(BColors.ENDC)
+
+            self.remote_mysql_dump_compressor = 'xz'
+
+            self.remote_mysql_dump_compressor_set(self.remote_mysql_dump_compressor)
 
     def remote_mysql_dump_compressor_set(self, value):
 
