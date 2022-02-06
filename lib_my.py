@@ -15,6 +15,8 @@ import math
 
 from typing import NamedTuple
 
+import shutil
+
 
 class BColors(NamedTuple):
     # HEADER = '\033[95m'
@@ -73,7 +75,7 @@ class CopyMysqlDbRemoteToLocal:
         self.local_mysql_password = 'test'
         self.local_mysql_port = 3306
 
-        os.makedirs('tmp', exist_ok=True)
+        self._tmp_dir = './tmp'
 
         self.console = ConsolePrint()
 
@@ -85,7 +87,6 @@ class CopyMysqlDbRemoteToLocal:
     def connect(self):
 
         if self.ssh_server is not None:
-
             return
 
         self.ssh_server = paramiko.SSHClient()
@@ -143,16 +144,30 @@ class CopyMysqlDbRemoteToLocal:
 
         except ValueError as e:
 
-            self.console.print(BColors.RED)
+            try:
+                self.console.print(BColors.RED)
 
-            self.console.print(f'{e}')
-            self.console.print(f'Пробуем xz, будет медленней')
+                self.console.print(f'{e}')
+                self.console.print(f'Пробуем lz4')
 
-            self.console.print(BColors.ENDC)
+                self.console.print(BColors.ENDC)
 
-            self.remote_mysql_dump_compressor = 'xz'
+                self.remote_mysql_dump_compressor = 'lz4'
 
-            self.remote_mysql_dump_compressor_set(self.remote_mysql_dump_compressor)
+                self.remote_mysql_dump_compressor_set(self.remote_mysql_dump_compressor)
+
+            except ValueError as e:
+
+                self.console.print(BColors.RED)
+
+                self.console.print(f'{e}')
+                self.console.print(f'Пробуем xz, будет медленней')
+
+                self.console.print(BColors.ENDC)
+
+                self.remote_mysql_dump_compressor = 'xz'
+
+                self.remote_mysql_dump_compressor_set(self.remote_mysql_dump_compressor)
 
     def remote_mysql_dump_compressor_set(self, value):
 
@@ -174,6 +189,8 @@ class CopyMysqlDbRemoteToLocal:
     def dump_remote_and_download(self):
 
         self.console.print('Начинаем дамп')
+
+        self.clean_dump_files()
 
         if os.path.isfile(self.remote_mysql_dump_path_local):
             os.remove(self.remote_mysql_dump_path_local)
@@ -298,16 +315,25 @@ class CopyMysqlDbRemoteToLocal:
             )
 
         elif self.remote_mysql_dump_compressor == 'xz':
-            with lzma.LZMAFile(self.remote_mysql_dump_path_local) as fxz:
-                with open(file=self.remote_mysql_dump_path_local_uncompressed, mode='wb') as fout:
-                    while True:
-                        data = fxz.read(10_000_000)
 
-                        if data:
-                            fout.write(data)
+            subprocess.call(
+                f'{self.get_xz_exec()} -d -c "{self.remote_mysql_dump_path_local}" ',
+                stdout=open(self.remote_mysql_dump_path_local_uncompressed, 'w'),
+                shell=True
 
-                        else:
-                            break
+            )
+
+        # elif self.remote_mysql_dump_compressor == 'xz':
+        #     with lzma.LZMAFile(self.remote_mysql_dump_path_local) as fxz:
+        #         with open(file=self.remote_mysql_dump_path_local_uncompressed, mode='wb') as fout:
+        #             while True:
+        #                 data = fxz.read(10_000_000)
+        #
+        #                 if data:
+        #                     fout.write(data)
+        #
+        #                 else:
+        #                     break
 
         else:
             raise ValueError('Не опознан тип сжатия')
@@ -388,6 +414,19 @@ class CopyMysqlDbRemoteToLocal:
 
         return file
 
+    def get_xz_exec(self):
+
+        if platform.system() in ['Linux', 'Darwin']:
+            file = 'xz'
+
+        elif platform.system() in ['Windows']:
+            file = r'.\xz\xz'
+
+        else:
+            raise ValueError('Не знаю такой операционной системы')
+
+        return file
+
     def get_mysql_exec(self):
         file = ''
 
@@ -415,8 +454,11 @@ class CopyMysqlDbRemoteToLocal:
 
         self.console.print('Удаляем файлы дампов')
 
-        os.remove(self.remote_mysql_dump_path_local)
-        os.remove(self.remote_mysql_dump_path_local_uncompressed)
+        os.makedirs(self._tmp_dir, exist_ok=True)
+
+        shutil.rmtree(self._tmp_dir)
+
+        os.makedirs(self._tmp_dir, exist_ok=True)
 
         self.console.print('Ok')
 
