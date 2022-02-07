@@ -6,9 +6,9 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
-mysqlclient = "==2.0.3"
-paramiko = "==2.7.2"
-cffi = "==1.14.5"
+mysqlclient = "==2.1.0"
+paramiko = "==2.9.2"
+cffi = "==1.15.0"
 
 [requires]
-python_version = "3.6"
+python_version = "3.9"
