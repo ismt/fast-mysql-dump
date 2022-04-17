@@ -435,11 +435,14 @@ class CopyMysqlDbRemoteToLocal:
 
         elif platform.system() in ['Windows']:
             files = [
-                r'.\utils\mysql.exe',
+                r'C:\Program Files\MariaDB 10.7\bin\mysql.exe',
+                r'C:\Program Files\MariaDB 10.6\bin\mysql.exe',
+                r'C:\Program Files\MariaDB 10.5\bin\mysql.exe',
                 r'C:\Program Files\MariaDB 10.4\bin\mysql.exe',
                 r'C:\Program Files\MariaDB 10.3\bin\mysql.exe',
                 r'C:\Program Files\MariaDB 10.2\bin\mysql.exe',
-                r'C:\Program Files\MariaDB 10.1\bin\mysql.exe'
+                r'C:\Program Files\MariaDB 10.1\bin\mysql.exe',
+                r'.\utils\mysql.exe',
             ]
 
             for file in files:
