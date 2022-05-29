@@ -271,7 +271,7 @@ class CopyMysqlDbRemoteToLocal:
 
         def callback(transferred, total):
 
-            if time.perf_counter() - self.start_console_time > 1:
+            if time.perf_counter() - self.start_console_time > 3:
                 print(f"{int(transferred * 100 / total)}%")
 
                 self.start_console_time = time.perf_counter()
