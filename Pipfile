@@ -7,7 +7,7 @@ verify_ssl = true
 
 [packages]
 mysqlclient = "==2.1.0"
-paramiko = "==2.9.2"
+paramiko = "==2.11.0"
 cffi = "==1.15.0"
 
 [requires]
