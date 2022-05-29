@@ -84,6 +84,8 @@ class CopyMysqlDbRemoteToLocal:
         self.local_db = None
         self.local_db_cursor = None
 
+        self.start_console_time = time.perf_counter()
+
     def connect(self):
 
         if self.ssh_server is not None:
@@ -267,9 +269,17 @@ class CopyMysqlDbRemoteToLocal:
 
         self.console.print(f'Качаем с сервера размер {format_int(stat.st_size)}')
 
+        def callback(transferred, total):
+
+            if time.perf_counter() - self.start_console_time > 1:
+                print(f"{int(transferred * 100 / total)}%")
+
+                self.start_console_time = time.perf_counter()
+
         self.sftp.get(
-            self.remote_mysql_dump_path,
-            self.remote_mysql_dump_path_local
+            remotepath=self.remote_mysql_dump_path,
+            localpath=self.remote_mysql_dump_path_local,
+            callback=callback
         )
 
         self.sftp.remove(self.remote_mysql_dump_path)
