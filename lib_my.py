@@ -263,7 +263,9 @@ class CopyMysqlDbRemoteToLocal:
         for line in stderr:
             print(line.strip('\n'))
 
-        self.console.print('Качаем с сервера')
+        stat = self.sftp.stat(self.remote_mysql_dump_path)
+
+        self.console.print(f'Качаем с сервера размер {format_int(stat.st_size)}')
 
         self.sftp.get(
             self.remote_mysql_dump_path,
@@ -544,3 +546,7 @@ def split_list_to_chunks(l, n):
     # Разбивает лист на серии по несколько элементов
     for i in range(0, len(l), n):
         yield l[i:i + n]
+
+
+def format_int(value):
+    return "{:,}".format(value).replace(',', "'")
