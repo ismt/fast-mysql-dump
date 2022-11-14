@@ -267,7 +267,7 @@ class CopyMysqlDbRemoteToLocal:
 
         stat = self.sftp.stat(self.remote_mysql_dump_path)
 
-        self.console.print(f'Качаем с сервера размер {format_int(stat.st_size)}')
+        self.console.print(f'Качаем с сервера размер {format_int(stat.st_size)} килобайт')
 
         def callback(transferred, total):
 
