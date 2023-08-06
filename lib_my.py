@@ -246,7 +246,7 @@ class CopyMysqlDbRemoteToLocal:
             f'--lock-tables '
             f'--routines '
             f'--quick '
-            # f'--no-autocommit '    
+            f'--compress '    
             f'{ignore_tables} '
             f'"{self.remote_mysql_dbname}" | {compressor} > {self.remote_mysql_dump_path}'
         )
