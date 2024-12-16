@@ -171,6 +171,8 @@ class CopyMysqlDbRemoteToLocal:
 
                 self.remote_mysql_dump_compressor_set(self.remote_mysql_dump_compressor)
 
+        self.console.print(f'Заливаем локально в базу {self.local_mysql_dbname}')
+
     def remote_mysql_dump_compressor_set(self, value):
 
         if value is None:
@@ -246,7 +248,7 @@ class CopyMysqlDbRemoteToLocal:
             f'--lock-tables '
             f'--routines '
             f'--quick '
-            f'--compress '    
+            f'--compress '
             f'{ignore_tables} '
             f'"{self.remote_mysql_dbname}" | {compressor} > {self.remote_mysql_dump_path}'
         )
