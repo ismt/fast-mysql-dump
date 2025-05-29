@@ -469,7 +469,7 @@ class CopyMysqlDbRemoteToLocal:
 
     def clean_dump_files(self):
 
-        self.console.print('Удаляем файлы дампов')
+        self.console.print('Удаляем файлы дампов локально')
 
         os.makedirs(self._tmp_dir, exist_ok=True)
 
