@@ -1,10 +1,12 @@
 import lzma
 import os
+import pathlib
 import re
 import subprocess
 import time
 import uuid
-from itertools import repeat
+from itertools import repeat, takewhile
+from pathlib import Path
 
 import MySQLdb
 import paramiko
@@ -13,9 +15,13 @@ import platform
 
 import math
 
-from typing import NamedTuple
+from typing import NamedTuple, Union
 
 import shutil
+
+import zstandard
+
+import tempfile
 
 
 class BColors(NamedTuple):
@@ -321,12 +327,19 @@ class CopyMysqlDbRemoteToLocal:
             )
 
         elif self.remote_mysql_dump_compressor == 'zstd':
+            dctx = zstandard.ZstdDecompressor()
 
-            subprocess.call(
-                f'{self.get_zstd_exec()} -d -c "{self.remote_mysql_dump_path_local}" ',
-                stdout=open(self.remote_mysql_dump_path_local_uncompressed, 'w'),
-                shell=True
-            )
+            with (
+                open(self.remote_mysql_dump_path_local, 'rb') as ifh,
+                open(self.remote_mysql_dump_path_local_uncompressed, 'wb') as ofh
+            ):
+                dctx.copy_stream(ifh, ofh)
+
+            # subprocess.call(
+            #     f'{self.get_zstd_exec()} -d -c "{self.remote_mysql_dump_path_local}" ',
+            #     stdout=open(self.remote_mysql_dump_path_local_uncompressed, 'w'),
+            #     shell=True
+            # )
 
         elif self.remote_mysql_dump_compressor == 'xz':
 
@@ -562,3 +575,72 @@ def split_list_to_chunks(l, n):
 
 def format_int(value):
     return "{:,}".format(value).replace(',', "'")
+
+
+def delete_line(file_path: str, line_number: int, start_from_one: bool = True):
+    """
+    Удаляет строку из файла по номеру, не загружая весь файл в память.
+
+    :param file_path: путь к файлу
+    :param line_number: номер строки (если start_from_one=True — 1-я строка = 1)
+    :param start_from_one: нумерация строк с 1 (по умолчанию) или с 0
+    """
+
+    file_path = Path(file_path)
+
+    tmp_path = Path(__file__).parent / 'tmp' / 'dump_tmp.sql'
+
+    with tmp_path.open(mode='w', encoding='utf-8') as f:
+        pass
+
+    tmp_fd = tmp_path
+
+    idx_to_remove = line_number - 1 if start_from_one else line_number
+
+    try:
+        with (
+            tmp_fd.open("w", encoding="utf-8") as tmp_file,
+            file_path.open("r", encoding="utf-8") as orig_file
+        ):
+            lines_count = count_lines(file_path=file_path)
+
+            for i, line in enumerate(orig_file):
+                if i % 1000000 == 0:
+                    print(calc_percent(count_all=lines_count, count=i))
+
+                if i != idx_to_remove:  # записываем всё кроме удаляемой строки
+                    tmp_file.write(line)
+
+        # заменить оригинал
+        os.replace(tmp_path, file_path)
+
+    except Exception:
+        os.remove(tmp_path)
+
+        raise
+
+
+def calc_percent(count: int, count_all: int):
+
+    res = 100 * count / count_all
+
+    res = int(res)
+
+    return f'{res}%'
+
+
+def count_lines(file_path: Union[Path, str], chunk_size: int = 1024 * 1024) -> int:
+    """
+    Быстрый подсчёт количества строк в файле.
+
+    :param file_path: путь к файлу
+    :param chunk_size: размер блока для чтения (по умолчанию 1 MB)
+    :return: количество строк
+    """
+
+    count = 0
+    with open(file_path, "rb") as f:  # бинарный режим быстрее
+        while chunk := f.read(chunk_size):
+            count += chunk.count(b"\n")
+
+    return count

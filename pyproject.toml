@@ -11,6 +11,7 @@ package-mode = false
 python = "^3.9"
 mysqlclient = "^2.2.6"
 paramiko = "^3.5.1"
+zstandard = "^0.25.0"
 
 
 [build-system]
