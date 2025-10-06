@@ -12,6 +12,7 @@ python = "^3.9"
 mysqlclient = "^2.2.6"
 paramiko = "^3.5.1"
 zstandard = "^0.25.0"
+requests = "^2.32.5"
 
 
 [build-system]
