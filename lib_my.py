@@ -85,7 +85,9 @@ class CopyMysqlDbRemoteToLocal:
         self.local_mysql_password = 'test'
         self.local_mysql_port = 3306
 
-        self._tmp_dir = './tmp'
+        self.tmp_dir = Path('./tmp')
+
+        print(f'Дампы лежат {self.tmp_dir.resolve()}')
 
         self.console = ConsolePrint()
 
@@ -492,11 +494,11 @@ class CopyMysqlDbRemoteToLocal:
 
         self.console.print('Удаляем файлы дампов локально')
 
-        os.makedirs(self._tmp_dir, exist_ok=True)
+        os.makedirs(self.tmp_dir, exist_ok=True)
 
-        shutil.rmtree(self._tmp_dir)
+        shutil.rmtree(self.tmp_dir)
 
-        os.makedirs(self._tmp_dir, exist_ok=True)
+        os.makedirs(self.tmp_dir, exist_ok=True)
 
         self.console.print('Ok')
 

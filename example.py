@@ -6,6 +6,8 @@ import lib_my
 
 def test_site():
     obj = lib_my.CopyMysqlDbRemoteToLocal()
+    obj.dump_name = 'zen_api_dev'
+    obj.remote_ssh_key_filename = r'C:\Users\T\.ssh\test5'
 
     obj.remote_ssh_hostname = ''
     obj.remote_ssh_username = ''
