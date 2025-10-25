@@ -21,7 +21,7 @@ import shutil
 
 import zstandard
 
-import tempfile
+import getpass
 
 
 class BColors(NamedTuple):
@@ -56,11 +56,12 @@ class ConsolePrint:
 
 
 class CopyMysqlDbRemoteToLocal:
-    def __init__(self):
+    def __init__(self, ):
         self.remote_ssh_hostname = ''
         self.remote_ssh_username = ''
         self.remote_ssh_password = ''
         self.remote_ssh_port = 22
+        self.remote_ssh_key_filename = None
 
         self.remote_mysql_dbname = ''
         self.remote_mysql_hostname = '127.0.0.1'
@@ -69,7 +70,10 @@ class CopyMysqlDbRemoteToLocal:
         self.remote_mysql_port = ''
         self.remote_mysql_dump_path = None
         self.remote_mysql_dump_path_local = None
-        self.remote_mysql_dump_path_local_uncompressed = f'tmp/dump.sql'
+
+        self.dump_name = only_letters_digits_hypen('dump')
+
+        self.remote_mysql_dump_path_local_uncompressed = None
 
         self.remote_mysql_dump_compressor = 'zstd'
 
@@ -100,14 +104,17 @@ class CopyMysqlDbRemoteToLocal:
         self.ssh_server = paramiko.SSHClient()
         self.ssh_server.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-        self.ssh_server.connect(
-            hostname=self.remote_ssh_hostname,
-            username=self.remote_ssh_username,
-            password=self.remote_ssh_password,
-            port=self.remote_ssh_port,
-            # compress=True,
-            allow_agent=False if self.remote_ssh_password else True
-        )
+        # agent = paramiko.Agent()
+        # keys = agent.get_keys()
+
+        try:
+            self.connect_ssh(enable_agent=True)
+
+        except (paramiko.PasswordRequiredException, paramiko.SSHException) as e:
+            # passphrase = getpass.getpass("Введите пароль к SSH-ключу: ")
+            passphrase = input("Введите пароль к SSH-ключу: ")
+
+            self.connect_ssh(passphrase=passphrase)
 
         self.sftp = self.ssh_server.open_sftp()
 
@@ -192,9 +199,10 @@ class CopyMysqlDbRemoteToLocal:
         if not self.remote_util_exists(value):
             raise ValueError(f'Утилиты {value} нет на ssh сервере')
 
-        # self.remote_mysql_dump_compressor = value
-        self.remote_mysql_dump_path_local = f'tmp/dump.sql.{value}'
+        self.remote_mysql_dump_path_local = f'tmp/{self.dump_name}.sql.{value}'
         self.remote_mysql_dump_path = f'/tmp/8aeac716-3960-421f-9672-ee00a95f7594'
+
+        self.remote_mysql_dump_path_local_uncompressed = f'tmp/{self.dump_name}.sql'
 
     def dump_remote_and_download(self):
 
@@ -507,6 +515,36 @@ class CopyMysqlDbRemoteToLocal:
 
         return True
 
+    def connect_ssh(self, passphrase=None, enable_agent=False):
+
+        params = dict(
+            hostname=self.remote_ssh_hostname,
+            username=self.remote_ssh_username,
+            port=self.remote_ssh_port,
+            compress=True,
+
+        )
+
+        if self.remote_ssh_password:
+            params['allow_agent'] = False
+            params['password'] = self.remote_ssh_password
+
+        if enable_agent:
+            params['allow_agent'] = True
+            params['look_for_keys'] = False
+
+        if self.remote_ssh_key_filename:
+            params['key_filename'] = self.remote_ssh_key_filename
+
+        if passphrase:
+            params['passphrase'] = passphrase
+
+        self.ssh_server.connect(
+            **params,
+        )
+
+        t = 5
+
 
 def insert_bath(
         row_list,
@@ -606,7 +644,7 @@ def delete_line(file_path: str, line_number: int, start_from_one: bool = True):
 
             for i, line in enumerate(orig_file):
                 if i % 1000000 == 0:
-                    print(calc_percent(count_all=lines_count, count=i))
+                    print(f'Удаляем строку {line_number} {calc_percent(count_all=lines_count, count=i)}')
 
                 if i != idx_to_remove:  # записываем всё кроме удаляемой строки
                     tmp_file.write(line)
@@ -644,3 +682,14 @@ def count_lines(file_path: Union[Path, str], chunk_size: int = 1024 * 1024) -> i
             count += chunk.count(b"\n")
 
     return count
+
+
+import re
+
+
+def only_letters_digits_hypen(s: str) -> str:
+    result = re.sub(r'[^\w\d]', '-', s, flags=re.UNICODE)
+    result = result.replace('_', '-')
+    result = re.sub(r'-+', '-', result).strip('-')
+
+    return result
