@@ -57,6 +57,8 @@ class ConsolePrint:
 
 class CopyMysqlDbRemoteToLocal:
     def __init__(self, ):
+        self.script_path = Path(__file__).parent
+
         self.remote_ssh_hostname = ''
         self.remote_ssh_username = ''
         self.remote_ssh_password = ''
@@ -201,10 +203,12 @@ class CopyMysqlDbRemoteToLocal:
         if not self.remote_util_exists(value):
             raise ValueError(f'Утилиты {value} нет на ssh сервере')
 
-        self.remote_mysql_dump_path_local = f'tmp/{self.dump_name}.sql.{value}'
-        self.remote_mysql_dump_path = f'/tmp/8aeac716-3960-421f-9672-ee00a95f7594'
+        tmp_dir = self.script_path / 'tmp'
 
-        self.remote_mysql_dump_path_local_uncompressed = f'tmp/{self.dump_name}.sql'
+        self.remote_mysql_dump_path_local = (tmp_dir / Path(f'{self.dump_name}.sql.{value}')).as_posix()
+        self.remote_mysql_dump_path = Path(f'/tmp/8aeac716-3960-421f-9672-ee00a95f7594').as_posix()
+
+        self.remote_mysql_dump_path_local_uncompressed = tmp_dir / f'{self.dump_name}.sql'
 
     def dump_remote_and_download(self):
 
@@ -245,7 +249,7 @@ class CopyMysqlDbRemoteToLocal:
             compressor = 'lz4 -5 -z'
 
         elif self.remote_mysql_dump_compressor == 'zstd':
-            compressor = 'pzstd -3 -c'
+            compressor = 'pzstd -5 -c'
 
         elif self.remote_mysql_dump_compressor == 'xz':
             compressor = 'xz -1 -c --threads=0'
