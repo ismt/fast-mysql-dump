@@ -316,15 +316,23 @@ class CopyMysqlDbRemoteToLocal:
 
         self.console.print('Восстанавливаем')
 
+        mysql_exe = self.get_mysql_exec()
+
+        args = [
+            f'"{mysql_exe.as_posix()}"',
+            f'--host={self.local_mysql_hostname}',
+            f'--port={self.local_mysql_port}',
+            f'--user={self.local_mysql_username}',
+            f'--password={self.local_mysql_password}',
+            f'  {self.local_mysql_dbname}',
+            f'--init_command="SET session TRANSACTION ISOLATION LEVEL READ COMMITTED"',
+            f'--skip-ssl',
+        ]
+
+        command = ' '.join(args)
+
         subprocess.call(
-            f'"{self.get_mysql_exec()}" '
-            f'--host={self.local_mysql_hostname} '
-            f'--port={self.local_mysql_port} '
-            f'--user={self.local_mysql_username} '
-            f'--password={self.local_mysql_password} '
-            f'  {self.local_mysql_dbname} '
-            f'--init_command="SET session TRANSACTION ISOLATION LEVEL READ COMMITTED" '
-            f'', stdin=open(self.remote_mysql_dump_path_local_uncompressed),
+            command, stdin=open(self.remote_mysql_dump_path_local_uncompressed),
             shell=True
         )
 
@@ -349,12 +357,6 @@ class CopyMysqlDbRemoteToLocal:
             ):
                 dctx.copy_stream(ifh, ofh)
 
-            # subprocess.call(
-            #     f'{self.get_zstd_exec()} -d -c "{self.remote_mysql_dump_path_local}" ',
-            #     stdout=open(self.remote_mysql_dump_path_local_uncompressed, 'w'),
-            #     shell=True
-            # )
-
         elif self.remote_mysql_dump_compressor == 'xz':
 
             subprocess.call(
@@ -363,18 +365,6 @@ class CopyMysqlDbRemoteToLocal:
                 shell=True
 
             )
-
-        # elif self.remote_mysql_dump_compressor == 'xz':
-        #     with lzma.LZMAFile(self.remote_mysql_dump_path_local) as fxz:
-        #         with open(file=self.remote_mysql_dump_path_local_uncompressed, mode='wb') as fout:
-        #             while True:
-        #                 data = fxz.read(10_000_000)
-        #
-        #                 if data:
-        #                     fout.write(data)
-        #
-        #                 else:
-        #                     break
 
         else:
             raise ValueError('Не опознан тип сжатия')
@@ -483,16 +473,19 @@ class CopyMysqlDbRemoteToLocal:
                 r'C:\Program Files\MariaDB 10.3\bin\mysql.exe',
                 r'C:\Program Files\MariaDB 10.2\bin\mysql.exe',
                 r'C:\Program Files\MariaDB 10.1\bin\mysql.exe',
+                r'C:\Program Files\MariaDB 12.0\bin\mysql.exe',
                 r'.\utils\mysql.exe',
             ]
 
             for file in files:
-                if os.path.isfile(file):
-                    return file
+                file2 = Path(file)
+
+                if file2.is_file():
+                    return file2
         else:
             raise ValueError('Не знаю такой операционной системы')
 
-        return file
+        return Path(file)
 
     def clean_dump_files(self):
 
