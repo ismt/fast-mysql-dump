@@ -327,6 +327,7 @@ class CopyMysqlDbRemoteToLocal:
             f'  {self.local_mysql_dbname}',
             f'--init_command="SET session TRANSACTION ISOLATION LEVEL READ COMMITTED"',
             f'--skip-ssl',
+            f'--compress'
         ]
 
         command = ' '.join(args)
