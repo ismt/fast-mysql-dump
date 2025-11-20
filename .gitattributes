@@ -4,3 +4,20 @@
 /lz4/* linguist-vendored
 /zstd/* linguist-vendored
 /utils/* linguist-vendored
+
+
+* text=auto
+
+
+*.sh text eol=lf
+*.py text eol=lf
+*.http text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+*.js text eol=lf
+*.http text eol=lf
+*.log text eol=lf
+*.html text eol=lf
+*.md text eol=lf
+*.conf text eol=lf
+*.Dockerfile text eol=lf

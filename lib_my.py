@@ -21,7 +21,7 @@ import shutil
 
 import zstandard
 
-import getpass
+from pydantic import validate_call
 
 
 class BColors(NamedTuple):
@@ -56,38 +56,59 @@ class ConsolePrint:
 
 
 class CopyMysqlDbRemoteToLocal:
-    def __init__(self, ):
+    @validate_call()
+    def __init__(
+            self,
+            dump_name: str = 'dump',
+            remote_ssh_hostname: str = '',
+            remote_ssh_username: str = '',
+            remote_ssh_password: str = '',
+            remote_ssh_port: int = 22,
+            remote_ssh_key_filename: str = None,
+            remote_mysql_dbname: str = '',
+            remote_mysql_hostname: str = '127.0.0.1',
+            remote_mysql_username: str = '',
+            remote_mysql_password: str = '',
+            remote_mysql_port: int = 3306,
+            local_mysql_dbname: str = '',
+            local_mysql_hostname: str = '127.0.0.1',
+            local_mysql_username: str = 'root',
+            local_mysql_password: str = 'test',
+            local_mysql_port: int = 3306,
+            remote_mysql_dump_compressor: str = 'zstd',
+            remote_mysql_ignore_tables: Union[list, tuple] = tuple()
+    ):
         self.script_path = Path(__file__).parent
 
-        self.remote_ssh_hostname = ''
-        self.remote_ssh_username = ''
-        self.remote_ssh_password = ''
-        self.remote_ssh_port = 22
-        self.remote_ssh_key_filename = None
+        self.remote_ssh_hostname = remote_ssh_hostname
+        self.remote_ssh_username = remote_ssh_username
+        self.remote_ssh_password = remote_ssh_password
+        self.remote_ssh_port = remote_ssh_port
+        self.remote_ssh_key_filename = remote_ssh_key_filename
 
-        self.remote_mysql_dbname = ''
-        self.remote_mysql_hostname = '127.0.0.1'
-        self.remote_mysql_username = ''
-        self.remote_mysql_password = ''
-        self.remote_mysql_port = ''
+        self.remote_mysql_dbname = remote_mysql_dbname
+        self.remote_mysql_hostname = remote_mysql_hostname
+        self.remote_mysql_username = remote_mysql_username
+        self.remote_mysql_password = remote_mysql_password
+        self.remote_mysql_port = remote_mysql_port
         self.remote_mysql_dump_path = None
         self.remote_mysql_dump_path_local = None
 
-        self.dump_name = only_letters_digits_hypen('dump')
+        self.dump_name = only_letters_digits_hypen(dump_name)
 
         self.remote_mysql_dump_path_local_uncompressed = None
 
-        self.remote_mysql_dump_compressor = 'zstd'
+        self.remote_mysql_dump_compressor = remote_mysql_dump_compressor
 
-        self.remote_mysql_ignore_tables = list()
+        self.remote_mysql_ignore_tables = remote_mysql_ignore_tables
 
-        self.local_mysql_dbname = ''
-        self.local_mysql_hostname = '127.0.0.1'
-        self.local_mysql_username = 'root'
-        self.local_mysql_password = 'test'
-        self.local_mysql_port = 3306
+        self.local_mysql_dbname = local_mysql_dbname
+        self.local_mysql_hostname = local_mysql_hostname
+        self.local_mysql_username = local_mysql_username
+        self.local_mysql_password = local_mysql_password
+        self.local_mysql_port = local_mysql_port
 
-        self.tmp_dir = Path('./tmp')
+        self.tmp_dir = Path(__file__).parent / 'tmp' / self.dump_name
 
         print(f'Дампы лежат {self.tmp_dir.resolve()}')
 
