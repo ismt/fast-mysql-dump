@@ -224,12 +224,10 @@ class CopyMysqlDbRemoteToLocal:
         if not self.remote_util_exists(value):
             raise ValueError(f'Утилиты {value} нет на ssh сервере')
 
-        tmp_dir = self.script_path / 'tmp'
-
-        self.remote_mysql_dump_path_local = (tmp_dir / Path(f'{self.dump_name}.sql.{value}')).as_posix()
+        self.remote_mysql_dump_path_local = (self.tmp_dir / Path(f'{self.dump_name}.sql.{value}')).as_posix()
         self.remote_mysql_dump_path = Path(f'/tmp/8aeac716-3960-421f-9672-ee00a95f7594').as_posix()
 
-        self.remote_mysql_dump_path_local_uncompressed = tmp_dir / f'{self.dump_name}.sql'
+        self.remote_mysql_dump_path_local_uncompressed = self.tmp_dir / f'{self.dump_name}.sql'
 
     def dump_remote_and_download(self):
 
@@ -564,7 +562,40 @@ class CopyMysqlDbRemoteToLocal:
             **params,
         )
 
-        t = 5
+    def delete_line(self, file_path: str, line_number: int, start_from_one: bool = True):
+
+        file_path = Path(file_path)
+
+        tmp_path = self.tmp_dir / 'dump_tmp.sql'
+
+        with tmp_path.open(mode='w', encoding='utf-8') as f:
+            pass
+
+        tmp_fd = tmp_path
+
+        idx_to_remove = line_number - 1 if start_from_one else line_number
+
+        try:
+            with (
+                tmp_fd.open("w", encoding="utf-8") as tmp_file,
+                file_path.open("r", encoding="utf-8") as orig_file
+            ):
+                lines_count = count_lines(file_path=file_path)
+
+                for i, line in enumerate(orig_file):
+                    if i % 1000000 == 0:
+                        print(f'Удаляем строку {line_number} {calc_percent(count_all=lines_count, count=i)}')
+
+                    if i != idx_to_remove:  # записываем всё кроме удаляемой строки
+                        tmp_file.write(line)
+
+            # заменить оригинал
+            os.replace(tmp_path, file_path)
+
+        except Exception:
+            os.remove(tmp_path)
+
+            raise
 
 
 def insert_bath(
@@ -636,47 +667,6 @@ def format_int(value):
     return "{:,}".format(value).replace(',', "'")
 
 
-def delete_line(file_path: str, line_number: int, start_from_one: bool = True):
-    """
-    Удаляет строку из файла по номеру, не загружая весь файл в память.
-
-    :param file_path: путь к файлу
-    :param line_number: номер строки (если start_from_one=True — 1-я строка = 1)
-    :param start_from_one: нумерация строк с 1 (по умолчанию) или с 0
-    """
-
-    file_path = Path(file_path)
-
-    tmp_path = Path(__file__).parent / 'tmp' / 'dump_tmp.sql'
-
-    with tmp_path.open(mode='w', encoding='utf-8') as f:
-        pass
-
-    tmp_fd = tmp_path
-
-    idx_to_remove = line_number - 1 if start_from_one else line_number
-
-    try:
-        with (
-            tmp_fd.open("w", encoding="utf-8") as tmp_file,
-            file_path.open("r", encoding="utf-8") as orig_file
-        ):
-            lines_count = count_lines(file_path=file_path)
-
-            for i, line in enumerate(orig_file):
-                if i % 1000000 == 0:
-                    print(f'Удаляем строку {line_number} {calc_percent(count_all=lines_count, count=i)}')
-
-                if i != idx_to_remove:  # записываем всё кроме удаляемой строки
-                    tmp_file.write(line)
-
-        # заменить оригинал
-        os.replace(tmp_path, file_path)
-
-    except Exception:
-        os.remove(tmp_path)
-
-        raise
 
 
 def calc_percent(count: int, count_all: int):
