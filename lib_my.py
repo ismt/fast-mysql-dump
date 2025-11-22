@@ -288,6 +288,8 @@ class CopyMysqlDbRemoteToLocal:
             f'--routines '
             f'--quick '
             f'--compress '
+            f'--skip-comments '
+            f'--no-tablespaces '
             f'{ignore_tables} '
             f'"{self.remote_mysql_dbname}" | {compressor} > {self.remote_mysql_dump_path}'
         )
