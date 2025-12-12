@@ -513,11 +513,12 @@ class CopyMysqlDbRemoteToLocal:
 
         self.console.print('Удаляем файлы дампов локально')
 
-        os.makedirs(self.tmp_dir, exist_ok=True)
+        if not self.tmp_dir.is_dir():
+            self.tmp_dir.mkdir(parents=True, exist_ok=True)
 
         shutil.rmtree(self.tmp_dir)
 
-        os.makedirs(self.tmp_dir, exist_ok=True)
+        self.tmp_dir.mkdir(parents=True, exist_ok=True)
 
         self.console.print('Ok')
 

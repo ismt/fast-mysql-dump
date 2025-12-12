@@ -5,28 +5,28 @@ import lib_my
 
 
 def test_site():
-    obj = lib_my.CopyMysqlDbRemoteToLocal()
-    obj.dump_name = 'zen_api_dev'
-    obj.remote_ssh_key_filename = r'C:\Users\T\.ssh\test5'
+    obj = lib_my.CopyMysqlDbRemoteToLocal(
+        dump_name='zen_api_stag',
 
-    obj.remote_ssh_hostname = ''
-    obj.remote_ssh_username = ''
-    obj.remote_ssh_password = ''
-    obj.remote_ssh_port = 22
+        remote_ssh_hostname='192.168.2.1',
+        remote_ssh_username='dev_stem',
+        remote_ssh_password='',
+        remote_ssh_port=53125,
 
-    obj.remote_mysql_hostname = '127.0.0.1'
-    obj.remote_mysql_dbname = 'test'
-    obj.remote_mysql_username = 'root'
-    obj.remote_mysql_password = 'test'
-    obj.remote_mysql_dump_compressor = 'zstd'
+        remote_ssh_key_filename=r'C:\Users\T\.ssh\testttt',
 
-    obj.remote_mysql_ignore_tables = [
-        'table_name',
-    ]
+        remote_mysql_hostname='ttt',
 
-    obj.local_mysql_dbname = 'root'
-    obj.local_mysql_hostname = '127.0.0.1'
-    obj.local_mysql_password = 'test'
+        remote_mysql_dbname='stag_api',
+        remote_mysql_username='admin',
+        remote_mysql_password='',
+
+        remote_mysql_dump_compressor='zstd',
+        remote_mysql_ignore_tables=[],
+        # local_mysql_dbname = 'zen__stag_api_test_logistic5',
+        local_mysql_dbname = 'zen__stag_api',
+        local_mysql_hostname = '192.168.2.87'
+    )
 
     obj.connect()
 
