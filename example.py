@@ -33,6 +33,7 @@ def test_site():
     obj.dump_remote_and_download()
     obj.unpack()
     # obj.change_row_format('dynamic')
+    # obj.remove_definer_from_file()
     obj.restore_local()
     obj.clean_dump_files()
 

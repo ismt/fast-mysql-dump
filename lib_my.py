@@ -22,6 +22,7 @@ import shutil
 import zstandard
 
 from pydantic import validate_call
+import tempfile
 
 
 class BColors(NamedTuple):
@@ -587,7 +588,7 @@ class CopyMysqlDbRemoteToLocal:
 
                 for i, line in enumerate(orig_file):
                     if i % 1000000 == 0:
-                        print(f'Удаляем строку {line_number} {calc_percent(count_all=lines_count, count=i)}')
+                        self.console.print(f'Удаляем строку {line_number} {calc_percent(count_all=lines_count, count=i)}')
 
                     if i != idx_to_remove:  # записываем всё кроме удаляемой строки
                         tmp_file.write(line)
@@ -599,6 +600,29 @@ class CopyMysqlDbRemoteToLocal:
             os.remove(tmp_path)
 
             raise
+
+    def remove_definer_from_file(self) -> int:
+        self.console.print('Удаляем definer')
+
+        path = Path(self.remote_mysql_dump_path_local_uncompressed)
+        tempfile = Path(self.tmp_dir / 'dump_tmp.sql')
+
+        pattern = re.compile(r'\s*DEFINER\s*=\s*`[^`]*`@`[^`]*`\s*')
+        count = 0
+
+        with tempfile.open(mode='w', encoding='utf-8') as tmp_file:
+            tmp_path = Path(tmp_file.name)
+            with path.open('r', encoding='utf-8') as src:
+                for line in src:
+                    new_line, line_count = pattern.subn(' ', line)
+                    count += line_count
+                    tmp_file.write(new_line)
+
+        shutil.move(str(tmp_path), str(path))
+
+        self.console.print(f'Удалено definer {count}')
+
+        return count
 
 
 def insert_bath(
@@ -668,8 +692,6 @@ def split_list_to_chunks(l, n):
 
 def format_int(value):
     return "{:,}".format(value).replace(',', "'")
-
-
 
 
 def calc_percent(count: int, count_all: int):
