@@ -293,6 +293,7 @@ class CopyMysqlDbRemoteToLocal:
             f'--compress',
             f'--skip-comments',
             f'--no-tablespaces',
+            '--skip-triggers'
         ]
 
         if self.include_routines:
