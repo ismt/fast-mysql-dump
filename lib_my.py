@@ -77,9 +77,13 @@ class CopyMysqlDbRemoteToLocal:
             local_mysql_password: str = 'test',
             local_mysql_port: int = 3306,
             remote_mysql_dump_compressor: str = 'zstd',
-            remote_mysql_ignore_tables: Union[list, tuple] = tuple()
+            remote_mysql_ignore_tables: Union[list, tuple] = tuple(),
+            # Сохранять хранимые процедуры и триггеры
+            include_routines: bool = False,
     ):
         self.script_path = Path(__file__).parent
+
+        self.include_routines = include_routines
 
         self.remote_ssh_hostname = remote_ssh_hostname
         self.remote_ssh_username = remote_ssh_username
@@ -277,25 +281,31 @@ class CopyMysqlDbRemoteToLocal:
         else:
             raise ValueError('Не опознан тип сжатия')
 
-        cmd_mysqldump = (
-            f' mysqldump '
-            f'--user="{self.remote_mysql_username}" '
-            f'--host="{self.remote_mysql_hostname}" '
-            f'''--password='{self.remote_mysql_password}' '''
-            f'--max_allowed_packet=1000M '
-            f'--extended-insert '
-            # f'--flush-logs '
-            f'--lock-tables '
-            f'--routines '
-            f'--quick '
-            f'--compress '
-            f'--skip-comments '
-            f'--no-tablespaces '
-            f'{ignore_tables} '
-            f'"{self.remote_mysql_dbname}" | {compressor} > {self.remote_mysql_dump_path}'
-        )
+        cmd_mysqldump = [
+            f' mysqldump',
+            f'--user="{self.remote_mysql_username}"',
+            f'--host="{self.remote_mysql_hostname}"',
+            f'''--password='{self.remote_mysql_password}' ''',
+            f'--max_allowed_packet=1000M',
+            f'--extended-insert',
+            f'--lock-tables',
+            f'--quick',
+            f'--compress',
+            f'--skip-comments',
+            f'--no-tablespaces',
+        ]
 
-        stdin, stdout, stderr = self.ssh_server.exec_command(cmd_mysqldump, get_pty=True)
+        if self.include_routines:
+            cmd_mysqldump.append('--routines')
+
+        if ignore_tables:
+            cmd_mysqldump.append(f'{ignore_tables}')
+
+        cmd_mysqldump.append(f'"{self.remote_mysql_dbname}" | {compressor} > {self.remote_mysql_dump_path}')
+
+        cmd_mysqldump2 = ' '.join(cmd_mysqldump)
+
+        stdin, stdout, stderr = self.ssh_server.exec_command(cmd_mysqldump2, get_pty=True)
 
         for line in stdout:
             line = line.strip('\n')
