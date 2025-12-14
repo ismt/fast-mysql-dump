@@ -347,7 +347,7 @@ class CopyMysqlDbRemoteToLocal:
 
         self.drop_local_tables()
 
-        self.console.print(f'Восстанавливаем в локальную {self.local_mysql_dbname}')
+        self.console.print(f'Восстанавливаем в {self.local_mysql_hostname} база {self.local_mysql_dbname}')
 
         mysql_exe = self.get_mysql_exec()
 
