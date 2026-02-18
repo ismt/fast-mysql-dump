@@ -288,12 +288,14 @@ class CopyMysqlDbRemoteToLocal:
             f'''--password='{self.remote_mysql_password}' ''',
             f'--max_allowed_packet=1000M',
             f'--extended-insert',
-            f'--lock-tables',
+            f'--single-transaction',
             f'--quick',
             f'--compress',
             f'--skip-comments',
             f'--no-tablespaces',
-            '--skip-triggers'
+            '--skip-triggers',
+            '--column-statistics=0',
+            '--set-gtid-purged=OFF'
         ]
 
         if self.include_routines:
