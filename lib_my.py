@@ -293,9 +293,7 @@ class CopyMysqlDbRemoteToLocal:
             f'--compress',
             f'--skip-comments',
             f'--no-tablespaces',
-            '--skip-triggers',
-            '--column-statistics=0',
-            '--set-gtid-purged=OFF'
+            '--skip-triggers'
         ]
 
         if self.include_routines:
