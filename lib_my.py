@@ -411,7 +411,7 @@ class CopyMysqlDbRemoteToLocal:
         self.local_db_cursor.execute(
             'show table status  where  Name not in %(table_names)s',
             dict(
-                table_names=self.remote_mysql_ignore_tables + ['']
+                table_names=list(self.remote_mysql_ignore_tables) + ['']
             ))
 
         res = self.local_db_cursor.fetchall()
