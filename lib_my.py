@@ -345,6 +345,12 @@ class CopyMysqlDbRemoteToLocal:
 
     def restore_local(self):
 
+        if not os.path.isfile(self.remote_mysql_dump_path_local_uncompressed):
+            raise FileNotFoundError(f'Файл дампа не найден: {self.remote_mysql_dump_path_local_uncompressed}')
+
+        if os.path.getsize(self.remote_mysql_dump_path_local_uncompressed) == 0:
+            raise ValueError(f'Файл дампа пустой: {self.remote_mysql_dump_path_local_uncompressed}')
+
         self.drop_local_tables()
 
         self.console.print(f'Восстанавливаем в {self.local_mysql_hostname} база {self.local_mysql_dbname}')
@@ -365,22 +371,36 @@ class CopyMysqlDbRemoteToLocal:
 
         command = ' '.join(args)
 
-        subprocess.call(
-            command, stdin=open(self.remote_mysql_dump_path_local_uncompressed),
-            shell=True
-        )
+        with open(self.remote_mysql_dump_path_local_uncompressed) as dump_file:
+            ret = subprocess.call(
+                command, stdin=dump_file,
+                shell=True
+            )
+
+        if ret != 0:
+            raise RuntimeError(f'mysql восстановление завершилось с ошибкой, код {ret}')
 
         self.console.print('Ok')
 
     def unpack(self):
         self.console.print(f'Распаковываем {self.remote_mysql_dump_path_local}')
 
+        if not os.path.isfile(self.remote_mysql_dump_path_local):
+            raise FileNotFoundError(f'Файл дампа не найден: {self.remote_mysql_dump_path_local}')
+
+        if os.path.getsize(self.remote_mysql_dump_path_local) == 0:
+            raise ValueError(f'Файл дампа пустой: {self.remote_mysql_dump_path_local}')
+
         if self.remote_mysql_dump_compressor == 'lz4':
-            subprocess.call(
-                f'{self.get_lz4_exec()} -d -c "{self.remote_mysql_dump_path_local}" ',
-                stdout=open(self.remote_mysql_dump_path_local_uncompressed, 'w'),
-                shell=True
-            )
+            with open(self.remote_mysql_dump_path_local_uncompressed, 'w') as out:
+                ret = subprocess.call(
+                    f'{self.get_lz4_exec()} -d -c "{self.remote_mysql_dump_path_local}" ',
+                    stdout=out,
+                    shell=True
+                )
+
+            if ret != 0:
+                raise RuntimeError(f'lz4 распаковка завершилась с ошибкой, код {ret}')
 
         elif self.remote_mysql_dump_compressor == 'zstd':
             dctx = zstandard.ZstdDecompressor()
@@ -392,16 +412,24 @@ class CopyMysqlDbRemoteToLocal:
                 dctx.copy_stream(ifh, ofh)
 
         elif self.remote_mysql_dump_compressor == 'xz':
+            with open(self.remote_mysql_dump_path_local_uncompressed, 'w') as out:
+                ret = subprocess.call(
+                    f'{self.get_xz_exec()} -d -c "{self.remote_mysql_dump_path_local}" ',
+                    stdout=out,
+                    shell=True
+                )
 
-            subprocess.call(
-                f'{self.get_xz_exec()} -d -c "{self.remote_mysql_dump_path_local}" ',
-                stdout=open(self.remote_mysql_dump_path_local_uncompressed, 'w'),
-                shell=True
-
-            )
+            if ret != 0:
+                raise RuntimeError(f'xz распаковка завершилась с ошибкой, код {ret}')
 
         else:
             raise ValueError('Не опознан тип сжатия')
+
+        if not os.path.isfile(self.remote_mysql_dump_path_local_uncompressed):
+            raise FileNotFoundError(f'Распакованный файл не создан: {self.remote_mysql_dump_path_local_uncompressed}')
+
+        if os.path.getsize(self.remote_mysql_dump_path_local_uncompressed) == 0:
+            raise ValueError(f'Распакованный файл пустой: {self.remote_mysql_dump_path_local_uncompressed}')
 
         self.console.print('Ok')
 
