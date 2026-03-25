@@ -311,8 +311,8 @@ class CopyMysqlDbRemoteToLocal:
         for line in stdout:
             line = line.strip('\n')
 
-            if 'Access denied for user' in line:
-                raise ValueError(line)
+            if 'mysqldump: Got error:' in line or 'Access denied for user' in line:
+                raise RuntimeError(f'mysqldump error: {line}')
 
             else:
                 print(line)
