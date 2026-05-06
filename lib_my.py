@@ -343,7 +343,10 @@ class CopyMysqlDbRemoteToLocal:
 
         self.console.print('Ok')
 
-    def restore_local(self):
+    def restore_local(self, skip_patterns: list[bytes] | None = None) -> None:
+
+        if not skip_patterns:
+            skip_patterns = [rb'/\*M!999999\\-']
 
         if not os.path.isfile(self.remote_mysql_dump_path_local_uncompressed):
             raise FileNotFoundError(f'Файл дампа не найден: {self.remote_mysql_dump_path_local_uncompressed}')
@@ -371,11 +374,25 @@ class CopyMysqlDbRemoteToLocal:
 
         command = ' '.join(args)
 
-        with open(self.remote_mysql_dump_path_local_uncompressed) as dump_file:
-            ret = subprocess.call(
-                command, stdin=dump_file,
-                shell=True
-            )
+        compiled_patterns: tuple[re.Pattern[bytes], ...] = tuple(re.compile(p) for p in (skip_patterns or []))
+
+        proc: subprocess.Popen[bytes] = subprocess.Popen(command, stdin=subprocess.PIPE, shell=True)
+
+        with open(self.remote_mysql_dump_path_local_uncompressed, 'rb') as dump_file:
+
+            for line in dump_file:
+
+                if not any(p.search(line) for p in compiled_patterns):
+
+                    try:
+                        proc.stdin.write(line)
+
+                    except BrokenPipeError:
+                        break
+
+        proc.stdin.close()
+
+        ret: int = proc.wait()
 
         if ret != 0:
             raise RuntimeError(f'mysql восстановление завершилось с ошибкой, код {ret}')
