@@ -701,7 +701,7 @@ class CopyMysqlDbRemoteToLocal:
         if sql_file_path.stat().st_size == 0:
             raise ValueError(f'Файл дампа пустой: {sql_file_path}')
 
-        self.console.print(f'Восстанавливаем на {mysql_host} базу {mysql_dbname}')
+        self.console.print(f'Восстанавливаем на {mysql_host} в базу {mysql_dbname}')
 
         db_conn = MySQLdb.connect(
             host=mysql_host,
