@@ -9,3 +9,4 @@ __pycache__
 /lz4/include/*
 /zstd/example/*
 /zstd/include/*
+/.claude
