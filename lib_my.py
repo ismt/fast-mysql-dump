@@ -680,6 +680,119 @@ class CopyMysqlDbRemoteToLocal:
 
         return count
 
+    def restore_dump_to_host(
+            self,
+            sql_file_path: str | Path,
+            mysql_host: str,
+            mysql_user: str,
+            mysql_password: str,
+            mysql_dbname: str,
+            mysql_port: int = 3306,
+            skip_patterns: list[bytes] | None = None
+    ) -> None:
+        if not skip_patterns:
+            skip_patterns = [rb'/\*M!999999\\-']
+
+        sql_file_path = Path(sql_file_path)
+
+        if not sql_file_path.is_file():
+            raise FileNotFoundError(f'Файл дампа не найден: {sql_file_path}')
+
+        if sql_file_path.stat().st_size == 0:
+            raise ValueError(f'Файл дампа пустой: {sql_file_path}')
+
+        self.console.print(f'Восстанавливаем на {mysql_host} базу {mysql_dbname}')
+
+        db_conn = MySQLdb.connect(
+            host=mysql_host,
+            port=mysql_port,
+            db='',
+            user=mysql_user,
+            passwd=mysql_password,
+            charset='utf8mb4',
+            connect_timeout=30,
+            autocommit=True,
+        )
+
+        db_cursor = db_conn.cursor(MySQLdb.cursors.DictCursor)
+
+        db_cursor.execute(f'show databases like "{mysql_dbname}"')
+
+        if not db_cursor.fetchall():
+            db_cursor.execute(f'create database {mysql_dbname}')
+
+        db_conn.close()
+
+        db_conn = MySQLdb.connect(
+            host=mysql_host,
+            port=mysql_port,
+            db=mysql_dbname,
+            user=mysql_user,
+            passwd=mysql_password,
+            charset='utf8mb4',
+            connect_timeout=30,
+            autocommit=True,
+            init_command='SET session TRANSACTION ISOLATION LEVEL READ COMMITTED;'
+        )
+
+        db_cursor = db_conn.cursor(MySQLdb.cursors.DictCursor)
+
+        self.console.print('Удаляем таблицы в целевой базе')
+
+        db_cursor.execute('show table status')
+
+        res = db_cursor.fetchall()
+
+        db_cursor.execute('SET foreign_key_checks = 0')
+
+        for item in res:
+            db_cursor.execute(f'''drop table `{item['Name']}`''')
+
+        db_cursor.execute('SET foreign_key_checks = 1')
+
+        db_conn.close()
+
+        self.console.print(f'Восстанавливаем дамп')
+
+        mysql_exe = self.get_mysql_exec()
+
+        args: list[str] = [
+            f'"{mysql_exe.as_posix()}"',
+            f'--host={mysql_host}',
+            f'--port={mysql_port}',
+            f'--user={mysql_user}',
+            f'--password={mysql_password}',
+            f'{mysql_dbname}',
+            f'--init_command="SET session TRANSACTION ISOLATION LEVEL READ COMMITTED"',
+            f'--skip-ssl',
+            f'--compress'
+        ]
+
+        command = ' '.join(args)
+
+        compiled_patterns: tuple[re.Pattern[bytes], ...] = tuple(re.compile(p) for p in (skip_patterns or []))
+
+        proc: subprocess.Popen[bytes] = subprocess.Popen(command, stdin=subprocess.PIPE, shell=True)
+
+        with sql_file_path.open('rb') as dump_file:
+            for line in dump_file:
+                if not any(p.search(line) for p in compiled_patterns):
+
+                    try:
+                        proc.stdin.write(line)
+
+                    except BrokenPipeError:
+                        break
+
+        proc.stdin.close()
+
+        ret: int = proc.wait()
+
+        if ret != 0:
+            raise RuntimeError(f'mysql восстановление завершилось с ошибкой, код {ret}')
+
+        self.console.print('Ok')
+
 
 def insert_bath(
         row_list,
