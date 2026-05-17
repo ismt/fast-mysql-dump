@@ -723,24 +723,25 @@ class CopyMysqlDbRemoteToLocal:
 
     def restore_dump_to_host(
             self,
-            sql_file_path: str | Path,
+            file_path: str | Path,
             mysql_host: str,
             mysql_user: str,
             mysql_password: str,
             mysql_dbname: str,
             mysql_port: int = 3306,
-            skip_patterns: list[bytes] | None = None
+            skip_patterns: list[bytes] | None = None,
+            stream_from_compressed: bool = True
     ) -> None:
         if not skip_patterns:
             skip_patterns = [rb'/\*M!999999\\-']
 
-        sql_file_path = Path(sql_file_path)
+        file_path = Path(file_path)
 
-        if not sql_file_path.is_file():
-            raise FileNotFoundError(f'Файл дампа не найден: {sql_file_path}')
+        if not file_path.is_file():
+            raise FileNotFoundError(f'Файл дампа не найден: {file_path}')
 
-        if sql_file_path.stat().st_size == 0:
-            raise ValueError(f'Файл дампа пустой: {sql_file_path}')
+        if file_path.stat().st_size == 0:
+            raise ValueError(f'Файл дампа пустой: {file_path}')
 
         self.console.print(f'Восстанавливаем на {mysql_host} в базу {mysql_dbname}')
 
@@ -815,15 +816,86 @@ class CopyMysqlDbRemoteToLocal:
 
         proc: subprocess.Popen[bytes] = subprocess.Popen(command, stdin=subprocess.PIPE, shell=True)
 
-        with sql_file_path.open('rb') as dump_file:
-            for line in dump_file:
-                if not any(p.search(line) for p in compiled_patterns):
+        file_size: int = file_path.stat().st_size
+        bytes_read: list[int] = [0]
+        stop_progress: list[bool] = [False]
 
-                    try:
-                        proc.stdin.write(line)
+        progress_thread: threading.Thread = threading.Thread(
+            target=_progress_printer,
+            args=(file_size, bytes_read, stop_progress),
+            daemon=True
+        )
 
-                    except BrokenPipeError:
-                        break
+        progress_thread.start()
+
+        if stream_from_compressed:
+            suffix = file_path.suffix.lower()
+
+            if suffix == '.zstd':
+                dctx = zstandard.ZstdDecompressor()
+
+                with file_path.open('rb') as ifh:
+                    with dctx.stream_reader(ifh) as reader:
+                        buffered_reader: io.BufferedReader = io.BufferedReader(reader)
+
+                        for line in buffered_reader:
+                            bytes_read[0] = ifh.tell()
+
+                            if not any(p.search(line) for p in compiled_patterns):
+
+                                try:
+                                    proc.stdin.write(line)
+
+                                except BrokenPipeError:
+                                    break
+
+            elif suffix == '.xz':
+                with file_path.open('rb') as raw_xz:
+                    with lzma.open(raw_xz, 'rb') as xz_file:
+
+                        for line in xz_file:
+                            bytes_read[0] = raw_xz.tell()
+
+                            if not any(p.search(line) for p in compiled_patterns):
+
+                                try:
+                                    proc.stdin.write(line)
+
+                                except BrokenPipeError:
+                                    break
+
+            elif suffix == '.lz4':
+                with file_path.open('rb') as raw_lz4:
+                    with lz4.frame.open(raw_lz4, 'rb') as lz4_file:
+
+                        for line in lz4_file:
+                            bytes_read[0] = raw_lz4.tell()
+
+                            if not any(p.search(line) for p in compiled_patterns):
+
+                                try:
+                                    proc.stdin.write(line)
+
+                                except BrokenPipeError:
+                                    break
+
+            else:
+                raise ValueError(f'Неизвестное расширение файла для декомпрессии: {suffix}')
+
+        else:
+            with file_path.open('rb') as dump_file:
+                for line in dump_file:
+                    bytes_read[0] = dump_file.tell()
+
+                    if not any(p.search(line) for p in compiled_patterns):
+
+                        try:
+                            proc.stdin.write(line)
+
+                        except BrokenPipeError:
+                            break
+
+        stop_progress[0] = True
 
         proc.stdin.close()
 
