@@ -66,7 +66,7 @@ def _progress_printer(file_size: int, bytes_read: list[int], stop_progress: list
         if stop_progress[0]:
             break
 
-        pct = bytes_read[0] * 100 // file_size if file_size else 0
+        pct = min(bytes_read[0] * 100 // file_size, 100) if file_size else 0
         print(f'  restore progress: {pct}%', flush=True)
 
 
@@ -419,7 +419,7 @@ class CopyMysqlDbRemoteToLocal:
                         buffered_reader: io.BufferedReader = io.BufferedReader(reader)
 
                         for line in buffered_reader:
-                            bytes_read[0] = buffered_reader.tell()
+                            bytes_read[0] = ifh.tell()
 
                             if not any(p.search(line) for p in compiled_patterns):
 
@@ -430,32 +430,34 @@ class CopyMysqlDbRemoteToLocal:
                                     break
 
             elif self.remote_mysql_dump_compressor == 'xz':
-                with lzma.open(source_path, 'rb') as xz_file:
+                with source_path.open('rb') as raw_xz:
+                    with lzma.open(raw_xz, 'rb') as xz_file:
 
-                    for line in xz_file:
-                        bytes_read[0] = xz_file.tell()
+                        for line in xz_file:
+                            bytes_read[0] = raw_xz.tell()
 
-                        if not any(p.search(line) for p in compiled_patterns):
+                            if not any(p.search(line) for p in compiled_patterns):
 
-                            try:
-                                proc.stdin.write(line)
+                                try:
+                                    proc.stdin.write(line)
 
-                            except BrokenPipeError:
-                                break
+                                except BrokenPipeError:
+                                    break
 
             elif self.remote_mysql_dump_compressor == 'lz4':
-                with lz4.frame.open(source_path, 'rb') as lz4_file:
+                with source_path.open('rb') as raw_lz4:
+                    with lz4.frame.open(raw_lz4, 'rb') as lz4_file:
 
-                    for line in lz4_file:
-                        bytes_read[0] = lz4_file.tell()
+                        for line in lz4_file:
+                            bytes_read[0] = raw_lz4.tell()
 
-                        if not any(p.search(line) for p in compiled_patterns):
+                            if not any(p.search(line) for p in compiled_patterns):
 
-                            try:
-                                proc.stdin.write(line)
+                                try:
+                                    proc.stdin.write(line)
 
-                            except BrokenPipeError:
-                                break
+                                except BrokenPipeError:
+                                    break
 
             else:
                 raise ValueError(f'Неизвестный компрессор: {self.remote_mysql_dump_compressor}')
