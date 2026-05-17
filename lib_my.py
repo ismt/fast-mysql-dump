@@ -1,3 +1,5 @@
+import io
+import lz4.frame
 import lzma
 import os
 import pathlib
@@ -15,7 +17,7 @@ import platform
 
 import math
 
-from typing import NamedTuple, Union
+from typing import NamedTuple, Union, Literal
 
 import shutil
 
@@ -76,7 +78,7 @@ class CopyMysqlDbRemoteToLocal:
             local_mysql_username: str = 'root',
             local_mysql_password: str = 'test',
             local_mysql_port: int = 3306,
-            remote_mysql_dump_compressor: str = 'zstd',
+            remote_mysql_dump_compressor: Literal['lz4', 'xz', 'zstd'] = 'zstd',
             remote_mysql_ignore_tables: Union[list, tuple] = tuple(),
             # Сохранять хранимые процедуры и триггеры
             include_routines: bool = False,
@@ -103,7 +105,7 @@ class CopyMysqlDbRemoteToLocal:
 
         self.remote_mysql_dump_path_local_uncompressed = None
 
-        self.remote_mysql_dump_compressor = remote_mysql_dump_compressor
+        self.remote_mysql_dump_compressor: Literal['lz4', 'xz', 'zstd'] = remote_mysql_dump_compressor
 
         self.remote_mysql_ignore_tables = remote_mysql_ignore_tables
 
@@ -343,16 +345,21 @@ class CopyMysqlDbRemoteToLocal:
 
         self.console.print('Ok')
 
-    def restore_local(self, skip_patterns: list[bytes] | None = None) -> None:
+    def restore_local(self, skip_patterns: list[bytes] | None = None, stream_from_compressed: bool = True) -> None:
 
         if not skip_patterns:
             skip_patterns = [rb'/\*M!999999\\-']
 
-        if not os.path.isfile(self.remote_mysql_dump_path_local_uncompressed):
-            raise FileNotFoundError(f'Файл дампа не найден: {self.remote_mysql_dump_path_local_uncompressed}')
+        if stream_from_compressed:
+            source_path = Path(self.remote_mysql_dump_path_local)
+        else:
+            source_path = Path(self.remote_mysql_dump_path_local_uncompressed)
 
-        if os.path.getsize(self.remote_mysql_dump_path_local_uncompressed) == 0:
-            raise ValueError(f'Файл дампа пустой: {self.remote_mysql_dump_path_local_uncompressed}')
+        if not source_path.is_file():
+            raise FileNotFoundError(f'Файл дампа не найден: {source_path}')
+
+        if source_path.stat().st_size == 0:
+            raise ValueError(f'Файл дампа пустой: {source_path}')
 
         self.drop_local_tables()
 
@@ -378,17 +385,54 @@ class CopyMysqlDbRemoteToLocal:
 
         proc: subprocess.Popen[bytes] = subprocess.Popen(command, stdin=subprocess.PIPE, shell=True)
 
-        with open(self.remote_mysql_dump_path_local_uncompressed, 'rb') as dump_file:
+        if stream_from_compressed:
+            if self.remote_mysql_dump_compressor == 'zstd':
+                dctx = zstandard.ZstdDecompressor()
 
-            for line in dump_file:
+                with source_path.open('rb') as ifh:
+                    with dctx.stream_reader(ifh) as reader:
+                        buffered_reader: io.BufferedReader = io.BufferedReader(reader)
 
-                if not any(p.search(line) for p in compiled_patterns):
+                        for line in buffered_reader:
+                            if not any(p.search(line) for p in compiled_patterns):
+                                try:
+                                    proc.stdin.write(line)
 
-                    try:
-                        proc.stdin.write(line)
+                                except BrokenPipeError:
+                                    break
 
-                    except BrokenPipeError:
-                        break
+            elif self.remote_mysql_dump_compressor == 'xz':
+                with lzma.open(source_path, 'rb') as xz_file:
+                    for line in xz_file:
+                        if not any(p.search(line) for p in compiled_patterns):
+                            try:
+                                proc.stdin.write(line)
+
+                            except BrokenPipeError:
+                                break
+
+            elif self.remote_mysql_dump_compressor == 'lz4':
+                with lz4.frame.open(source_path, 'rb') as lz4_file:
+                    for line in lz4_file:
+                        if not any(p.search(line) for p in compiled_patterns):
+                            try:
+                                proc.stdin.write(line)
+
+                            except BrokenPipeError:
+                                break
+
+            else:
+                raise ValueError(f'Неизвестный компрессор: {self.remote_mysql_dump_compressor}')
+
+        else:
+            with source_path.open('rb') as dump_file:
+                for line in dump_file:
+                    if not any(p.search(line) for p in compiled_patterns):
+                        try:
+                            proc.stdin.write(line)
+
+                        except BrokenPipeError:
+                            break
 
         proc.stdin.close()
 
@@ -399,7 +443,7 @@ class CopyMysqlDbRemoteToLocal:
 
         self.console.print('Ok')
 
-    def unpack(self):
+    def unpack(self) -> None:
         self.console.print(f'Распаковываем {self.remote_mysql_dump_path_local}')
 
         if not os.path.isfile(self.remote_mysql_dump_path_local):
@@ -409,15 +453,11 @@ class CopyMysqlDbRemoteToLocal:
             raise ValueError(f'Файл дампа пустой: {self.remote_mysql_dump_path_local}')
 
         if self.remote_mysql_dump_compressor == 'lz4':
-            with open(self.remote_mysql_dump_path_local_uncompressed, 'w') as out:
-                ret = subprocess.call(
-                    f'{self.get_lz4_exec()} -d -c "{self.remote_mysql_dump_path_local}" ',
-                    stdout=out,
-                    shell=True
-                )
-
-            if ret != 0:
-                raise RuntimeError(f'lz4 распаковка завершилась с ошибкой, код {ret}')
+            with (
+                lz4.frame.open(self.remote_mysql_dump_path_local, 'rb') as ifh,
+                open(self.remote_mysql_dump_path_local_uncompressed, 'wb') as ofh
+            ):
+                shutil.copyfileobj(ifh, ofh)
 
         elif self.remote_mysql_dump_compressor == 'zstd':
             dctx = zstandard.ZstdDecompressor()
@@ -429,15 +469,11 @@ class CopyMysqlDbRemoteToLocal:
                 dctx.copy_stream(ifh, ofh)
 
         elif self.remote_mysql_dump_compressor == 'xz':
-            with open(self.remote_mysql_dump_path_local_uncompressed, 'w') as out:
-                ret = subprocess.call(
-                    f'{self.get_xz_exec()} -d -c "{self.remote_mysql_dump_path_local}" ',
-                    stdout=out,
-                    shell=True
-                )
-
-            if ret != 0:
-                raise RuntimeError(f'xz распаковка завершилась с ошибкой, код {ret}')
+            with (
+                lzma.open(self.remote_mysql_dump_path_local, 'rb') as ifh,
+                open(self.remote_mysql_dump_path_local_uncompressed, 'wb') as ofh
+            ):
+                shutil.copyfileobj(ifh, ofh)
 
         else:
             raise ValueError('Не опознан тип сжатия')
@@ -497,45 +533,6 @@ class CopyMysqlDbRemoteToLocal:
             os.rename(remote_mysql_dump_path_local_uncompressed_tmp, self.remote_mysql_dump_path_local_uncompressed)
 
             self.console.print('Ok')
-
-    def get_zstd_exec(self):
-
-        if platform.system() in ['Linux', 'Darwin']:
-            file = 'zstd'
-
-        elif platform.system() in ['Windows']:
-            file = r'.\zstd\zstd'
-
-        else:
-            raise ValueError('Не знаю такой операционной системы')
-
-        return file
-
-    def get_lz4_exec(self):
-
-        if platform.system() in ['Linux', 'Darwin']:
-            file = 'lz4'
-
-        elif platform.system() in ['Windows']:
-            file = r'.\lz4\lz4'
-
-        else:
-            raise ValueError('Не знаю такой операционной системы')
-
-        return file
-
-    def get_xz_exec(self):
-
-        if platform.system() in ['Linux', 'Darwin']:
-            file = 'xz'
-
-        elif platform.system() in ['Windows']:
-            file = r'.\xz\xz'
-
-        else:
-            raise ValueError('Не знаю такой операционной системы')
-
-        return file
 
     def get_mysql_exec(self):
         file = ''
