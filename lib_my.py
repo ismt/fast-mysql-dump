@@ -5,6 +5,7 @@ import os
 import pathlib
 import re
 import subprocess
+import threading
 import time
 import uuid
 from itertools import repeat, takewhile
@@ -56,6 +57,17 @@ class ConsolePrint:
         print(f'''{time.strftime('%H:%M:%S', time.gmtime(seconds))}.{sec_portion} {message}''')
 
         self.last_message_time = current_time
+
+
+def _progress_printer(file_size: int, bytes_read: list[int], stop_progress: list[bool]) -> None:
+    while not stop_progress[0]:
+        time.sleep(5)
+
+        if stop_progress[0]:
+            break
+
+        pct = bytes_read[0] * 100 // file_size if file_size else 0
+        print(f'  restore progress: {pct}%', flush=True)
 
 
 class CopyMysqlDbRemoteToLocal:
@@ -385,7 +397,20 @@ class CopyMysqlDbRemoteToLocal:
 
         proc: subprocess.Popen[bytes] = subprocess.Popen(command, stdin=subprocess.PIPE, shell=True)
 
+        file_size: int = source_path.stat().st_size
+        bytes_read: list[int] = [0]
+        stop_progress: list[bool] = [False]
+
+        progress_thread: threading.Thread = threading.Thread(
+            target=_progress_printer,
+            args=(file_size, bytes_read, stop_progress),
+            daemon=True
+        )
+
+        progress_thread.start()
+
         if stream_from_compressed:
+
             if self.remote_mysql_dump_compressor == 'zstd':
                 dctx = zstandard.ZstdDecompressor()
 
@@ -394,7 +419,10 @@ class CopyMysqlDbRemoteToLocal:
                         buffered_reader: io.BufferedReader = io.BufferedReader(reader)
 
                         for line in buffered_reader:
+                            bytes_read[0] = buffered_reader.tell()
+
                             if not any(p.search(line) for p in compiled_patterns):
+
                                 try:
                                     proc.stdin.write(line)
 
@@ -403,8 +431,12 @@ class CopyMysqlDbRemoteToLocal:
 
             elif self.remote_mysql_dump_compressor == 'xz':
                 with lzma.open(source_path, 'rb') as xz_file:
+
                     for line in xz_file:
+                        bytes_read[0] = xz_file.tell()
+
                         if not any(p.search(line) for p in compiled_patterns):
+
                             try:
                                 proc.stdin.write(line)
 
@@ -413,8 +445,12 @@ class CopyMysqlDbRemoteToLocal:
 
             elif self.remote_mysql_dump_compressor == 'lz4':
                 with lz4.frame.open(source_path, 'rb') as lz4_file:
+
                     for line in lz4_file:
+                        bytes_read[0] = lz4_file.tell()
+
                         if not any(p.search(line) for p in compiled_patterns):
+
                             try:
                                 proc.stdin.write(line)
 
@@ -426,13 +462,19 @@ class CopyMysqlDbRemoteToLocal:
 
         else:
             with source_path.open('rb') as dump_file:
+
                 for line in dump_file:
+                    bytes_read[0] = dump_file.tell()
+
                     if not any(p.search(line) for p in compiled_patterns):
+
                         try:
                             proc.stdin.write(line)
 
                         except BrokenPipeError:
                             break
+
+        stop_progress[0] = True
 
         proc.stdin.close()
 
