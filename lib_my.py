@@ -69,7 +69,7 @@ def _progress_printer(file_size: int, bytes_read: list[int], stop_progress: list
 
         pct = min(bytes_read[0] * 100 // file_size, 100) if file_size else 0
 
-        print(f'\r  restore progress: {pct}%', end='', flush=True)
+        print(f'\r  restore progress: {pct}%  [{time.strftime("%H:%M:%S")}]', end='', flush=True)
 
         printed = True
 
