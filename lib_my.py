@@ -18,7 +18,7 @@ import platform
 
 import math
 
-from typing import NamedTuple, Union, Literal
+from typing import IO, NamedTuple, Union, Literal
 
 import shutil
 
@@ -68,6 +68,44 @@ def _progress_printer(file_size: int, bytes_read: list[int], stop_progress: list
 
         pct = min(bytes_read[0] * 100 // file_size, 100) if file_size else 0
         print(f'  restore progress: {pct}%', flush=True)
+
+
+def _write_line(
+        proc: subprocess.Popen[bytes],
+        line: bytes,
+        skip_compiled: tuple[re.Pattern[bytes], ...],
+        pat_collate: re.Pattern[bytes] | None,
+        pat_collate_repl: bytes,
+        pat_charset: re.Pattern[bytes] | None,
+        pat_charset_repl: bytes,
+) -> bool:
+
+    if any(p.search(line) for p in skip_compiled):
+
+        return True
+
+    if pat_collate is not None:
+        line = pat_collate.sub(pat_collate_repl, line)
+
+    if pat_charset is not None:
+        line = pat_charset.sub(pat_charset_repl, line)
+
+    try:
+        proc.stdin.write(line)
+
+        return True
+
+    except BrokenPipeError:
+
+        return False
+
+
+class _LinePatterns(NamedTuple):
+    compiled: tuple[re.Pattern[bytes], ...]
+    collate: re.Pattern[bytes] | None
+    collate_repl: bytes
+    charset: re.Pattern[bytes] | None
+    charset_repl: bytes
 
 
 class CopyMysqlDbRemoteToLocal:
@@ -357,7 +395,59 @@ class CopyMysqlDbRemoteToLocal:
 
         self.console.print('Ok')
 
-    def restore_local(self, skip_patterns: list[bytes] | None = None, stream_from_compressed: bool = True) -> None:
+    @staticmethod
+    def _build_line_patterns(
+            skip_patterns: list[bytes] | None,
+            target_collation: str | None,
+    ) -> _LinePatterns:
+        compiled: tuple[re.Pattern[bytes], ...] = tuple(re.compile(p) for p in (skip_patterns or []))
+
+        pat_collate: re.Pattern[bytes] | None = None
+        pat_collate_repl: bytes = b''
+        pat_charset: re.Pattern[bytes] | None = None
+        pat_charset_repl: bytes = b''
+
+        if target_collation:
+            target_coll_bytes: bytes = target_collation.encode()
+            target_charset_bytes: bytes = target_collation.split('_')[0].encode()
+            pat_collate = re.compile(rb'COLLATE([= ])\w+')
+            pat_collate_repl = b'COLLATE\\1' + target_coll_bytes
+            pat_charset = re.compile(rb'DEFAULT CHARSET=\w+')
+            pat_charset_repl = b'DEFAULT CHARSET=' + target_charset_bytes
+
+        result: _LinePatterns = _LinePatterns(
+            compiled=compiled,
+            collate=pat_collate,
+            collate_repl=pat_collate_repl,
+            charset=pat_charset,
+            charset_repl=pat_charset_repl,
+        )
+        return result
+
+    @staticmethod
+    def _pipe_lines(
+            proc: subprocess.Popen[bytes],
+            reader: IO[bytes],
+            raw_fh: IO[bytes],
+            bytes_read: list[int],
+            patterns: _LinePatterns,
+    ) -> None:
+        for line in reader:
+            bytes_read[0] = raw_fh.tell()
+
+            if not _write_line(
+                    proc, line, patterns.compiled,
+                    patterns.collate, patterns.collate_repl,
+                    patterns.charset, patterns.charset_repl,
+            ):
+                break
+
+    def restore_local(
+            self,
+            skip_patterns: list[bytes] | None = None,
+            stream_from_compressed: bool = True,
+            target_collation: str | None = None,
+    ) -> None:
 
         if not skip_patterns:
             skip_patterns = [rb'/\*M!999999\\-']
@@ -393,7 +483,7 @@ class CopyMysqlDbRemoteToLocal:
 
         command = ' '.join(args)
 
-        compiled_patterns: tuple[re.Pattern[bytes], ...] = tuple(re.compile(p) for p in (skip_patterns or []))
+        patterns: _LinePatterns = self._build_line_patterns(skip_patterns, target_collation)
 
         proc: subprocess.Popen[bytes] = subprocess.Popen(command, stdin=subprocess.PIPE, shell=True)
 
@@ -418,46 +508,19 @@ class CopyMysqlDbRemoteToLocal:
                     with dctx.stream_reader(ifh) as reader:
                         buffered_reader: io.BufferedReader = io.BufferedReader(reader)
 
-                        for line in buffered_reader:
-                            bytes_read[0] = ifh.tell()
-
-                            if not any(p.search(line) for p in compiled_patterns):
-
-                                try:
-                                    proc.stdin.write(line)
-
-                                except BrokenPipeError:
-                                    break
+                        self._pipe_lines(proc, buffered_reader, ifh, bytes_read, patterns)
 
             elif self.remote_mysql_dump_compressor == 'xz':
                 with source_path.open('rb') as raw_xz:
                     with lzma.open(raw_xz, 'rb') as xz_file:
 
-                        for line in xz_file:
-                            bytes_read[0] = raw_xz.tell()
-
-                            if not any(p.search(line) for p in compiled_patterns):
-
-                                try:
-                                    proc.stdin.write(line)
-
-                                except BrokenPipeError:
-                                    break
+                        self._pipe_lines(proc, xz_file, raw_xz, bytes_read, patterns)
 
             elif self.remote_mysql_dump_compressor == 'lz4':
                 with source_path.open('rb') as raw_lz4:
                     with lz4.frame.open(raw_lz4, 'rb') as lz4_file:
 
-                        for line in lz4_file:
-                            bytes_read[0] = raw_lz4.tell()
-
-                            if not any(p.search(line) for p in compiled_patterns):
-
-                                try:
-                                    proc.stdin.write(line)
-
-                                except BrokenPipeError:
-                                    break
+                        self._pipe_lines(proc, lz4_file, raw_lz4, bytes_read, patterns)
 
             else:
                 raise ValueError(f'Неизвестный компрессор: {self.remote_mysql_dump_compressor}')
@@ -465,16 +528,7 @@ class CopyMysqlDbRemoteToLocal:
         else:
             with source_path.open('rb') as dump_file:
 
-                for line in dump_file:
-                    bytes_read[0] = dump_file.tell()
-
-                    if not any(p.search(line) for p in compiled_patterns):
-
-                        try:
-                            proc.stdin.write(line)
-
-                        except BrokenPipeError:
-                            break
+                self._pipe_lines(proc, dump_file, dump_file, bytes_read, patterns)
 
         stop_progress[0] = True
 
@@ -730,7 +784,8 @@ class CopyMysqlDbRemoteToLocal:
             mysql_dbname: str,
             mysql_port: int = 3306,
             skip_patterns: list[bytes] | None = None,
-            stream_from_compressed: bool = True
+            stream_from_compressed: bool = True,
+            target_collation: str | None = None,
     ) -> None:
         if not skip_patterns:
             skip_patterns = [rb'/\*M!999999\\-']
@@ -812,7 +867,7 @@ class CopyMysqlDbRemoteToLocal:
 
         command = ' '.join(args)
 
-        compiled_patterns: tuple[re.Pattern[bytes], ...] = tuple(re.compile(p) for p in (skip_patterns or []))
+        patterns: _LinePatterns = self._build_line_patterns(skip_patterns, target_collation)
 
         proc: subprocess.Popen[bytes] = subprocess.Popen(command, stdin=subprocess.PIPE, shell=True)
 
@@ -838,62 +893,27 @@ class CopyMysqlDbRemoteToLocal:
                     with dctx.stream_reader(ifh) as reader:
                         buffered_reader: io.BufferedReader = io.BufferedReader(reader)
 
-                        for line in buffered_reader:
-                            bytes_read[0] = ifh.tell()
-
-                            if not any(p.search(line) for p in compiled_patterns):
-
-                                try:
-                                    proc.stdin.write(line)
-
-                                except BrokenPipeError:
-                                    break
+                        self._pipe_lines(proc, buffered_reader, ifh, bytes_read, patterns)
 
             elif suffix == '.xz':
                 with file_path.open('rb') as raw_xz:
                     with lzma.open(raw_xz, 'rb') as xz_file:
 
-                        for line in xz_file:
-                            bytes_read[0] = raw_xz.tell()
-
-                            if not any(p.search(line) for p in compiled_patterns):
-
-                                try:
-                                    proc.stdin.write(line)
-
-                                except BrokenPipeError:
-                                    break
+                        self._pipe_lines(proc, xz_file, raw_xz, bytes_read, patterns)
 
             elif suffix == '.lz4':
                 with file_path.open('rb') as raw_lz4:
                     with lz4.frame.open(raw_lz4, 'rb') as lz4_file:
 
-                        for line in lz4_file:
-                            bytes_read[0] = raw_lz4.tell()
-
-                            if not any(p.search(line) for p in compiled_patterns):
-
-                                try:
-                                    proc.stdin.write(line)
-
-                                except BrokenPipeError:
-                                    break
+                        self._pipe_lines(proc, lz4_file, raw_lz4, bytes_read, patterns)
 
             else:
                 raise ValueError(f'Неизвестное расширение файла для декомпрессии: {suffix}')
 
         else:
             with file_path.open('rb') as dump_file:
-                for line in dump_file:
-                    bytes_read[0] = dump_file.tell()
 
-                    if not any(p.search(line) for p in compiled_patterns):
-
-                        try:
-                            proc.stdin.write(line)
-
-                        except BrokenPipeError:
-                            break
+                self._pipe_lines(proc, dump_file, dump_file, bytes_read, patterns)
 
         stop_progress[0] = True
 
