@@ -60,6 +60,7 @@ class ConsolePrint:
 
 
 def _progress_printer(file_size: int, bytes_read: list[int], stop_progress: list[bool]) -> None:
+    printed = False
     while not stop_progress[0]:
         time.sleep(5)
 
@@ -67,7 +68,13 @@ def _progress_printer(file_size: int, bytes_read: list[int], stop_progress: list
             break
 
         pct = min(bytes_read[0] * 100 // file_size, 100) if file_size else 0
+
+        if printed:
+            print('\033[A\033[2K', end='', flush=True)
+
         print(f'  restore progress: {pct}%', flush=True)
+
+        printed = True
 
 
 def _write_line(
