@@ -69,10 +69,7 @@ def _progress_printer(file_size: int, bytes_read: list[int], stop_progress: list
 
         pct = min(bytes_read[0] * 100 // file_size, 100) if file_size else 0
 
-        if printed:
-            print('\033[A\033[2K', end='', flush=True)
-
-        print(f'  restore progress: {pct}%', flush=True)
+        print(f'\r  restore progress: {pct}%', end='', flush=True)
 
         printed = True
 
