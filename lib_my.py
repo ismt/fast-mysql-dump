@@ -928,6 +928,7 @@ class CopyMysqlDbRemoteToLocal:
         if ret != 0:
             raise RuntimeError(f'mysql восстановление завершилось с ошибкой, код {ret}')
 
+        self.console.print('')
         self.console.print('Ok')
 
 
