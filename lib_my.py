@@ -450,7 +450,7 @@ class CopyMysqlDbRemoteToLocal:
             self,
             skip_patterns: list[bytes] | None = None,
             stream_from_compressed: bool = True,
-            target_collation: str | None = None,
+            target_collation: str | None = 'utf8mb4_uca1400_ai_ci',
     ) -> None:
 
         if not skip_patterns:
