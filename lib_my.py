@@ -136,10 +136,12 @@ class CopyMysqlDbRemoteToLocal:
             remote_mysql_ignore_tables: Union[list, tuple] = tuple(),
             # Сохранять хранимые процедуры и триггеры
             include_routines: bool = False,
+            compression_level: int = 5,
     ):
         self.script_path = Path(__file__).parent
 
         self.include_routines = include_routines
+        self.compression_level = compression_level
 
         self.remote_ssh_hostname = remote_ssh_hostname
         self.remote_ssh_username = remote_ssh_username
@@ -326,13 +328,13 @@ class CopyMysqlDbRemoteToLocal:
         )
 
         if self.remote_mysql_dump_compressor == 'lz4':
-            compressor = 'lz4 -5 -z'
+            compressor = f'lz4 -{self.compression_level} -z'
 
         elif self.remote_mysql_dump_compressor == 'zstd':
-            compressor = 'pzstd -5 -c'
+            compressor = f'pzstd -{self.compression_level} -c'
 
         elif self.remote_mysql_dump_compressor == 'xz':
-            compressor = 'xz -1 -c --threads=0'
+            compressor = f'xz -{self.compression_level} -c --threads=0'
 
         else:
             raise ValueError('Не опознан тип сжатия')
