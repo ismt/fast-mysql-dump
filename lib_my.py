@@ -402,7 +402,7 @@ class CopyMysqlDbRemoteToLocal:
     @staticmethod
     def _build_line_patterns(
             skip_patterns: list[bytes] | None,
-            target_collation: str | None,
+            target_collation: str | None = 'utf8mb4_uca1400_ai_ci'
     ) -> _LinePatterns:
         compiled: tuple[re.Pattern[bytes], ...] = tuple(re.compile(p) for p in (skip_patterns or []))
 
@@ -789,7 +789,7 @@ class CopyMysqlDbRemoteToLocal:
             mysql_port: int = 3306,
             skip_patterns: list[bytes] | None = None,
             stream_from_compressed: bool = True,
-            target_collation: str | None = None,
+            target_collation: str | None = 'utf8mb4_uca1400_ai_ci'
     ) -> None:
         if not skip_patterns:
             skip_patterns = [rb'/\*M!999999\\-']
