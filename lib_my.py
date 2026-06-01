@@ -61,6 +61,7 @@ class ConsolePrint:
 
 def _progress_printer(file_size: int, bytes_read: list[int], stop_progress: list[bool]) -> None:
     printed = False
+
     while not stop_progress[0]:
         time.sleep(5)
 
@@ -385,7 +386,7 @@ class CopyMysqlDbRemoteToLocal:
         def callback(transferred, total):
 
             if time.perf_counter() - self.start_console_time > 3:
-                print(f"Скачано {int(transferred * 100 / total)}%")
+                print(f'\r  download progress: {int(transferred * 100 / total)}%  [{time.strftime("%H:%M:%S")}]', end='', flush=True)
 
                 self.start_console_time = time.perf_counter()
 
