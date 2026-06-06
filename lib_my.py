@@ -2,13 +2,12 @@ import io
 import lz4.frame
 import lzma
 import os
-import pathlib
 import re
 import subprocess
 import threading
 import time
 import uuid
-from itertools import repeat, takewhile
+from itertools import repeat
 from pathlib import Path
 
 import MySQLdb
@@ -25,7 +24,6 @@ import shutil
 import zstandard
 
 from pydantic import validate_call
-import tempfile
 
 
 class BColors(NamedTuple):
@@ -62,15 +60,27 @@ class ConsolePrint:
 def _progress_printer(file_size: int, bytes_read: list[int], stop_progress: list[bool]) -> None:
     printed = False
 
+    prev_bytes: int = 0
+    prev_time: float = time.perf_counter()
+
     while not stop_progress[0]:
         time.sleep(5)
 
         if stop_progress[0]:
             break
 
-        pct = min(bytes_read[0] * 100 // file_size, 100) if file_size else 0
+        now: float = time.perf_counter()
+        elapsed: float = now - prev_time
+        cur: int = bytes_read[0]
 
-        print(f'\r  restore progress: {pct}%  [{time.strftime("%H:%M:%S")}]', end='', flush=True)
+        pct = min(cur * 100 // file_size, 100) if file_size else 0
+        done_kb: int = cur // 1024
+        speed_kb: float = (cur - prev_bytes) / 1024 / elapsed if elapsed > 0 else 0
+
+        prev_bytes = cur
+        prev_time = now
+
+        print(f'\r  restore progress: {pct}%  {done_kb} KB  {speed_kb:.1f} KB/s  [{time.strftime("%H:%M:%S")}]', end='', flush=True)
 
         printed = True
 
@@ -133,6 +143,7 @@ class CopyMysqlDbRemoteToLocal:
             local_mysql_username: str = 'root',
             local_mysql_password: str = 'test',
             local_mysql_port: int = 3306,
+            local_mysql_collation: Literal['utf8mb4_uca1400_ai_ci', 'utf8mb4_unicode_ci', 'utf8mb4_general_ci'] | None = 'utf8mb4_uca1400_ai_ci',
             remote_mysql_dump_compressor: Literal['lz4', 'xz', 'zstd'] = 'zstd',
             remote_mysql_ignore_tables: Union[list, tuple] = tuple(),
             # Сохранять хранимые процедуры и триггеры
@@ -171,6 +182,7 @@ class CopyMysqlDbRemoteToLocal:
         self.local_mysql_username = local_mysql_username
         self.local_mysql_password = local_mysql_password
         self.local_mysql_port = local_mysql_port
+        self.local_mysql_collation = local_mysql_collation
 
         self.tmp_dir = Path(__file__).parent / 'tmp' / self.dump_name
 
@@ -184,6 +196,7 @@ class CopyMysqlDbRemoteToLocal:
         self.local_db_cursor = None
 
         self.start_console_time = time.perf_counter()
+        self.prev_transferred: int = 0
 
     def connect(self):
 
@@ -199,7 +212,7 @@ class CopyMysqlDbRemoteToLocal:
         try:
             self.connect_ssh(enable_agent=True)
 
-        except (paramiko.PasswordRequiredException, paramiko.SSHException) as e:
+        except (paramiko.PasswordRequiredException, paramiko.SSHException):
             # passphrase = getpass.getpass("Введите пароль к SSH-ключу: ")
             passphrase = input("Введите пароль к SSH-ключу: ")
 
@@ -214,9 +227,10 @@ class CopyMysqlDbRemoteToLocal:
             user=self.local_mysql_username,
             passwd=self.local_mysql_password,
             charset="utf8mb4",
+            collation=self.local_mysql_collation,
             connect_timeout=30,
             autocommit=True,
-
+            compress=True
         )
 
         self.local_db_cursor = self.local_db.cursor(MySQLdb.cursors.DictCursor)
@@ -237,8 +251,9 @@ class CopyMysqlDbRemoteToLocal:
             charset="utf8mb4",
             connect_timeout=30,
             autocommit=True,
-            init_command='SET session TRANSACTION ISOLATION LEVEL READ COMMITTED;'
-
+            init_command='SET session TRANSACTION ISOLATION LEVEL READ COMMITTED;',
+            collation=self.local_mysql_collation,
+            compress=True
         )
 
         self.local_db_cursor = self.local_db.cursor(MySQLdb.cursors.DictCursor)
@@ -252,7 +267,7 @@ class CopyMysqlDbRemoteToLocal:
                 self.console.print(BColors.RED)
 
                 self.console.print(f'{e}')
-                self.console.print(f'Пробуем lz4')
+                self.console.print('Пробуем lz4')
 
                 self.console.print(BColors.ENDC)
 
@@ -265,7 +280,7 @@ class CopyMysqlDbRemoteToLocal:
                 self.console.print(BColors.RED)
 
                 self.console.print(f'{e}')
-                self.console.print(f'Пробуем xz, будет медленней')
+                self.console.print('Пробуем xz, будет медленней')
 
                 self.console.print(BColors.ENDC)
 
@@ -289,7 +304,7 @@ class CopyMysqlDbRemoteToLocal:
             raise ValueError(f'Утилиты {value} нет на ssh сервере')
 
         self.remote_mysql_dump_path_local = (self.tmp_dir / Path(f'{self.dump_name}.sql.{value}')).as_posix()
-        self.remote_mysql_dump_path = Path(f'/tmp/8aeac716-3960-421f-9672-ee00a95f7594').as_posix()
+        self.remote_mysql_dump_path = Path('/tmp/8aeac716-3960-421f-9672-ee00a95f7594').as_posix()
 
         self.remote_mysql_dump_path_local_uncompressed = self.tmp_dir / f'{self.dump_name}.sql'
 
@@ -341,17 +356,17 @@ class CopyMysqlDbRemoteToLocal:
             raise ValueError('Не опознан тип сжатия')
 
         cmd_mysqldump = [
-            f' mysqldump',
+            ' mysqldump',
             f'--user="{self.remote_mysql_username}"',
             f'--host="{self.remote_mysql_hostname}"',
             f'''--password='{self.remote_mysql_password}' ''',
-            f'--max_allowed_packet=1000M',
-            f'--extended-insert',
-            f'--single-transaction',
-            f'--quick',
-            f'--compress',
-            f'--skip-comments',
-            f'--no-tablespaces',
+            '--max_allowed_packet=1000M',
+            '--extended-insert',
+            '--single-transaction',
+            '--quick',
+            '--compress',
+            '--skip-comments',
+            '--no-tablespaces',
             '--skip-triggers'
         ]
 
@@ -385,10 +400,17 @@ class CopyMysqlDbRemoteToLocal:
 
         def callback(transferred, total):
 
-            if time.perf_counter() - self.start_console_time > 3:
-                print(f'\r  download progress: {int(transferred * 100 / total)}%  [{time.strftime("%H:%M:%S")}]', end='', flush=True)
+            now = time.perf_counter()
+            elapsed = now - self.start_console_time
 
-                self.start_console_time = time.perf_counter()
+            if elapsed > 3:
+                done_kb: int = transferred // 1024
+                speed_kb: float = (transferred - self.prev_transferred) / 1024 / elapsed if elapsed > 0 else 0
+
+                print(f'\r  download progress: {int(transferred * 100 / total)}%  {done_kb} KB  {speed_kb:.1f} KB/s  [{time.strftime("%H:%M:%S")}]', end='', flush=True)
+
+                self.start_console_time = now
+                self.prev_transferred = transferred
 
         self.sftp.get(
             remotepath=self.remote_mysql_dump_path,
@@ -483,9 +505,9 @@ class CopyMysqlDbRemoteToLocal:
             f'--user={self.local_mysql_username}',
             f'--password={self.local_mysql_password}',
             f'  {self.local_mysql_dbname}',
-            f'--init_command="SET session TRANSACTION ISOLATION LEVEL READ COMMITTED"',
-            f'--skip-ssl',
-            f'--compress'
+            '--init_command="SET session TRANSACTION ISOLATION LEVEL READ COMMITTED"',
+            '--skip-ssl',
+            '--compress'
         ]
 
         command = ' '.join(args)
@@ -520,13 +542,11 @@ class CopyMysqlDbRemoteToLocal:
             elif self.remote_mysql_dump_compressor == 'xz':
                 with source_path.open('rb') as raw_xz:
                     with lzma.open(raw_xz, 'rb') as xz_file:
-
                         self._pipe_lines(proc, xz_file, raw_xz, bytes_read, patterns)
 
             elif self.remote_mysql_dump_compressor == 'lz4':
                 with source_path.open('rb') as raw_lz4:
                     with lz4.frame.open(raw_lz4, 'rb') as lz4_file:
-
                         self._pipe_lines(proc, lz4_file, raw_lz4, bytes_read, patterns)
 
             else:
@@ -602,12 +622,12 @@ class CopyMysqlDbRemoteToLocal:
 
         res = self.local_db_cursor.fetchall()
 
-        self.local_db_cursor.execute(f'''SET foreign_key_checks = 0''')
+        self.local_db_cursor.execute('''SET foreign_key_checks = 0''')
 
         for item in res:
             self.local_db_cursor.execute(f'''drop table `{item['Name']}`''')
 
-        self.local_db_cursor.execute(f'''SET foreign_key_checks = 1''')
+        self.local_db_cursor.execute('''SET foreign_key_checks = 1''')
 
         self.console.print('Ok')
 
@@ -856,7 +876,7 @@ class CopyMysqlDbRemoteToLocal:
 
         db_conn.close()
 
-        self.console.print(f'Восстанавливаем дамп')
+        self.console.print('Восстанавливаем дамп')
 
         mysql_exe = self.get_mysql_exec()
 
@@ -867,9 +887,9 @@ class CopyMysqlDbRemoteToLocal:
             f'--user={mysql_user}',
             f'--password={mysql_password}',
             f'{mysql_dbname}',
-            f'--init_command="SET session TRANSACTION ISOLATION LEVEL READ COMMITTED"',
-            f'--skip-ssl',
-            f'--compress'
+            '--init_command="SET session TRANSACTION ISOLATION LEVEL READ COMMITTED"',
+            '--skip-ssl',
+            '--compress'
         ]
 
         command = ' '.join(args)
@@ -905,13 +925,11 @@ class CopyMysqlDbRemoteToLocal:
             elif suffix == '.xz':
                 with file_path.open('rb') as raw_xz:
                     with lzma.open(raw_xz, 'rb') as xz_file:
-
                         self._pipe_lines(proc, xz_file, raw_xz, bytes_read, patterns)
 
             elif suffix == '.lz4':
                 with file_path.open('rb') as raw_lz4:
                     with lz4.frame.open(raw_lz4, 'rb') as lz4_file:
-
                         self._pipe_lines(proc, lz4_file, raw_lz4, bytes_read, patterns)
 
             else:
