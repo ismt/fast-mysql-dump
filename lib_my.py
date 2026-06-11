@@ -812,7 +812,8 @@ class CopyMysqlDbRemoteToLocal:
             mysql_port: int = 3306,
             skip_patterns: list[bytes] | None = None,
             stream_from_compressed: bool = True,
-            target_collation: str | None = 'utf8mb4_uca1400_ai_ci'
+            target_collation: str | None = 'utf8mb4_uca1400_ai_ci',
+            confirm: bool = True,
     ) -> None:
         if not skip_patterns:
             skip_patterns = [rb'/\*M!999999\\-']
@@ -824,6 +825,16 @@ class CopyMysqlDbRemoteToLocal:
 
         if file_path.stat().st_size == 0:
             raise ValueError(f'Файл дампа пустой: {file_path}')
+
+        if confirm:
+            answer: str = input(
+                f'Восстановить дамп на {mysql_host} в базу {mysql_dbname}? Все таблицы будут удалены. [y/N]: '
+            ).strip().lower()
+
+            if answer not in ('y', 'yes', 'д', 'да'):
+                self.console.print(f'Восстановление на {mysql_host}/{mysql_dbname} отменено')
+
+                return
 
         self.console.print(f'Восстанавливаем на {mysql_host} в базу {mysql_dbname}')
 
