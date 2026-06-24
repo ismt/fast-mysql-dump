@@ -132,18 +132,22 @@ class CopyMysqlDbRemoteToLocal:
             remote_ssh_username: str = '',
             remote_ssh_password: str = '',
             remote_ssh_port: int = 22,
-            remote_ssh_key_filename: str = None,
+            remote_ssh_key_filename: str | None = None,
             remote_mysql_dbname: str = '',
             remote_mysql_hostname: str = '127.0.0.1',
             remote_mysql_username: str = '',
             remote_mysql_password: str = '',
             remote_mysql_port: int = 3306,
+
             local_mysql_dbname: str = '',
             local_mysql_hostname: str = '127.0.0.1',
             local_mysql_username: str = 'root',
             local_mysql_password: str = 'test',
             local_mysql_port: int = 3306,
-            local_mysql_collation: Literal['utf8mb4_uca1400_ai_ci', 'utf8mb4_unicode_ci', 'utf8mb4_general_ci'] | None = 'utf8mb4_uca1400_ai_ci',
+
+            local_mysql_collation: Literal['utf8mb4_uca1400_ai_ci', 'utf8mb4_unicode_ci', 'utf8mb4_general_ci','utf8_general_ci'] | None = 'utf8mb4_uca1400_ai_ci',
+            local_mysql_charset: Literal['utf8mb4', 'utf8mb4_general_ci', 'utf8mb4_unicode_ci','utf8mb3'] | None = 'utf8mb4',
+
             remote_mysql_dump_compressor: Literal['lz4', 'xz', 'zstd'] = 'zstd',
             remote_mysql_ignore_tables: Union[list, tuple] = tuple(),
             # Сохранять хранимые процедуры и триггеры
@@ -183,6 +187,7 @@ class CopyMysqlDbRemoteToLocal:
         self.local_mysql_password = local_mysql_password
         self.local_mysql_port = local_mysql_port
         self.local_mysql_collation = local_mysql_collation
+        self.local_mysql_charset = local_mysql_charset
 
         self.tmp_dir = Path(__file__).parent / 'tmp' / self.dump_name
 
@@ -226,7 +231,7 @@ class CopyMysqlDbRemoteToLocal:
             db='',
             user=self.local_mysql_username,
             passwd=self.local_mysql_password,
-            charset="utf8mb4",
+            charset=self.local_mysql_charset,
             collation=self.local_mysql_collation,
             connect_timeout=30,
             autocommit=True,
@@ -248,7 +253,7 @@ class CopyMysqlDbRemoteToLocal:
             db=self.local_mysql_dbname,
             user=self.local_mysql_username,
             passwd=self.local_mysql_password,
-            charset="utf8mb4",
+            charset=self.local_mysql_charset,
             connect_timeout=30,
             autocommit=True,
             init_command='SET session TRANSACTION ISOLATION LEVEL READ COMMITTED;',
@@ -427,7 +432,8 @@ class CopyMysqlDbRemoteToLocal:
     @staticmethod
     def _build_line_patterns(
             skip_patterns: list[bytes] | None,
-            target_collation: str | None = 'utf8mb4_uca1400_ai_ci'
+            target_collation: str | None = 'utf8mb4_uca1400_ai_ci',
+            target_charset: str | None = None,
     ) -> _LinePatterns:
         compiled: tuple[re.Pattern[bytes], ...] = tuple(re.compile(p) for p in (skip_patterns or []))
 
@@ -438,11 +444,14 @@ class CopyMysqlDbRemoteToLocal:
 
         if target_collation:
             target_coll_bytes: bytes = target_collation.encode()
-            target_charset_bytes: bytes = target_collation.split('_')[0].encode()
             pat_collate = re.compile(rb'COLLATE([= ])\w+')
             pat_collate_repl = b'COLLATE\\1' + target_coll_bytes
+
+        effective_charset: str | None = target_charset or (target_collation.split('_')[0] if target_collation else None)
+
+        if effective_charset:
             pat_charset = re.compile(rb'DEFAULT CHARSET=\w+')
-            pat_charset_repl = b'DEFAULT CHARSET=' + target_charset_bytes
+            pat_charset_repl = b'DEFAULT CHARSET=' + effective_charset.encode()
 
         result: _LinePatterns = _LinePatterns(
             compiled=compiled,
@@ -451,6 +460,7 @@ class CopyMysqlDbRemoteToLocal:
             charset=pat_charset,
             charset_repl=pat_charset_repl,
         )
+
         return result
 
     @staticmethod
@@ -512,7 +522,7 @@ class CopyMysqlDbRemoteToLocal:
 
         command = ' '.join(args)
 
-        patterns: _LinePatterns = self._build_line_patterns(skip_patterns, target_collation)
+        patterns: _LinePatterns = self._build_line_patterns(skip_patterns, target_collation, self.local_mysql_charset)
 
         proc: subprocess.Popen[bytes] = subprocess.Popen(command, stdin=subprocess.PIPE, shell=True)
 
@@ -812,7 +822,8 @@ class CopyMysqlDbRemoteToLocal:
             mysql_port: int = 3306,
             skip_patterns: list[bytes] | None = None,
             stream_from_compressed: bool = True,
-            target_collation: str | None = 'utf8mb4_uca1400_ai_ci',
+            target_collation: Literal['utf8mb4_uca1400_ai_ci', 'utf8mb4_unicode_ci', 'utf8mb4_general_ci'] | None = 'utf8mb4_uca1400_ai_ci',
+            target_charset: Literal['utf8mb4', 'utf8mb4_general_ci', 'utf8mb4_unicode_ci', 'utf8mb3'] | None = 'utf8mb4',
             confirm: bool = True,
     ) -> None:
         if not skip_patterns:
@@ -905,7 +916,7 @@ class CopyMysqlDbRemoteToLocal:
 
         command = ' '.join(args)
 
-        patterns: _LinePatterns = self._build_line_patterns(skip_patterns, target_collation)
+        patterns: _LinePatterns = self._build_line_patterns(skip_patterns, target_collation, target_charset)
 
         proc: subprocess.Popen[bytes] = subprocess.Popen(command, stdin=subprocess.PIPE, shell=True)
 
