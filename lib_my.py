@@ -822,7 +822,7 @@ class CopyMysqlDbRemoteToLocal:
             mysql_port: int = 3306,
             skip_patterns: list[bytes] | None = None,
             stream_from_compressed: bool = True,
-            target_collation: Literal['utf8mb4_uca1400_ai_ci', 'utf8mb4_unicode_ci', 'utf8mb4_general_ci'] | None = 'utf8mb4_uca1400_ai_ci',
+            target_collation: Literal['utf8mb4_uca1400_ai_ci', 'utf8mb4_unicode_ci', 'utf8mb4_general_ci','utf8_general_ci'] | None = 'utf8mb4_uca1400_ai_ci',
             target_charset: Literal['utf8mb4', 'utf8mb4_general_ci', 'utf8mb4_unicode_ci', 'utf8mb3'] | None = 'utf8mb4',
             confirm: bool = True,
     ) -> None:
