@@ -450,8 +450,8 @@ class CopyMysqlDbRemoteToLocal:
         effective_charset: str | None = target_charset or (target_collation.split('_')[0] if target_collation else None)
 
         if effective_charset:
-            pat_charset = re.compile(rb'DEFAULT CHARSET=\w+')
-            pat_charset_repl = b'DEFAULT CHARSET=' + effective_charset.encode()
+            pat_charset = re.compile(rb'(DEFAULT CHARSET=|CHARACTER SET )\w+')
+            pat_charset_repl = b'\\1' + effective_charset.encode()
 
         result: _LinePatterns = _LinePatterns(
             compiled=compiled,
