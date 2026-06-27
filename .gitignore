@@ -10,3 +10,4 @@ __pycache__
 /zstd/example/*
 /zstd/include/*
 /.claude
+/.venv
