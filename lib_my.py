@@ -145,8 +145,9 @@ class CopyMysqlDbRemoteToLocal:
             local_mysql_password: str = 'test',
             local_mysql_port: int = 3306,
 
-            local_mysql_collation: Literal['utf8mb4_uca1400_ai_ci', 'utf8mb4_unicode_ci', 'utf8mb4_general_ci','utf8_general_ci'] | None = 'utf8mb4_uca1400_ai_ci',
-            local_mysql_charset: Literal['utf8mb4', 'utf8mb4_general_ci', 'utf8mb4_unicode_ci','utf8mb3'] | None = 'utf8mb4',
+            local_mysql_collation: Literal[
+                                       'utf8mb4_uca1400_ai_ci', 'utf8mb4_unicode_ci', 'utf8mb4_general_ci', 'utf8_general_ci'] | None = 'utf8mb4_uca1400_ai_ci',
+            local_mysql_charset: Literal['utf8mb4', 'utf8mb4_general_ci', 'utf8mb4_unicode_ci', 'utf8mb3'] | None = 'utf8mb4',
 
             remote_mysql_dump_compressor: Literal['lz4', 'xz', 'zstd'] = 'zstd',
             remote_mysql_ignore_tables: Union[list, tuple] = tuple(),
@@ -412,7 +413,8 @@ class CopyMysqlDbRemoteToLocal:
                 done_kb: int = transferred // 1024
                 speed_kb: float = (transferred - self.prev_transferred) / 1024 / elapsed if elapsed > 0 else 0
 
-                print(f'\r  download progress: {int(transferred * 100 / total)}%  {done_kb} KB  {speed_kb:.1f} KB/s  [{time.strftime("%H:%M:%S")}]', end='', flush=True)
+                print(f'\r  download progress: {int(transferred * 100 / total)}%  {done_kb} KB  {speed_kb:.1f} KB/s  [{time.strftime("%H:%M:%S")}]',
+                      end='', flush=True)
 
                 self.start_console_time = now
                 self.prev_transferred = transferred
@@ -427,7 +429,9 @@ class CopyMysqlDbRemoteToLocal:
 
         self.ssh_server.close()
 
+        self.console.print('.')
         self.console.print('Ok')
+        self.console.print(self.remote_mysql_dump_path_local)
 
     @staticmethod
     def _build_line_patterns(
@@ -822,7 +826,8 @@ class CopyMysqlDbRemoteToLocal:
             mysql_port: int = 3306,
             skip_patterns: list[bytes] | None = None,
             stream_from_compressed: bool = True,
-            target_collation: Literal['utf8mb4_uca1400_ai_ci', 'utf8mb4_unicode_ci', 'utf8mb4_general_ci','utf8_general_ci'] | None = 'utf8mb4_uca1400_ai_ci',
+            target_collation: Literal[
+                                  'utf8mb4_uca1400_ai_ci', 'utf8mb4_unicode_ci', 'utf8mb4_general_ci', 'utf8_general_ci'] | None = 'utf8mb4_uca1400_ai_ci',
             target_charset: Literal['utf8mb4', 'utf8mb4_general_ci', 'utf8mb4_unicode_ci', 'utf8mb3'] | None = 'utf8mb4',
             confirm: bool = True,
     ) -> None:
